@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProjectStatus {
+  ACTIVE
+  SUCCESS
+  FAILURE
+  TIE
+  CANCELLED
+  PENDING_VALIDATION
+}
+
+enum BetType {
+  SUPPORT
+  DOUBT
+}
+
+enum UserRole {
+  FOUNDER
+  INVESTOR
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(uuid())
+  aptosAddress  String    @unique
+  username      String?
+  bio           String?
+  roles         UserRole[]
+  reputation    Float     @default(0.0)
+  createdProjects Project[]
+  bets          Bet[]
+  payouts       Payout[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Project {
+  id              String     @id @default(uuid())
+  creator         User       @relation(fields: [creatorId], references: [id])
+  creatorId       String
+  aptosContract   String     @unique
+  name            String
+  description     String
+  coverImage      String?
+  listingFee      Float
+  targetHolders   Int
+  currentHolders  Int        @default(0)
+  deadline        DateTime
+  status          ProjectStatus @default(ACTIVE)
+  bets            Bet[]
+  validation      Validation?
+  metrics         Metric[]
+  categories      Category[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  Payout Payout[]
+}
+
+model Metric {
+  id          String   @id @default(uuid())
+  project     Project  @relation(fields: [projectId], references: [id])
+  projectId   String
+  holderCount Int
+  volume      Float
+  avgPrice    Float
+  timestamp   DateTime @default(now())
+}
+
+model Bet {
+  id        String   @id @default(uuid())
+  project   Project  @relation(fields: [projectId], references: [id])
+  projectId String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  amount    Float
+  type      BetType
+  odds      Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, userId])
+}
+
+model Validation {
+  id             String   @id @default(uuid())
+  project        Project  @relation(fields: [projectId], references: [id])
+  projectId      String   @unique
+  finalHolders   Int
+  supportPool    Float
+  doubtPool      Float
+  totalPool      Float
+  platformFee    Float
+  oracleTxHash   String?
+  processedAt    DateTime?
+  createdAt      DateTime @default(now())
+}
+
+model Payout {
+  id          String   @id @default(uuid())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  project     Project  @relation(fields: [projectId], references: [id])
+  projectId   String
+  amount      Float
+  txHash      String?
+  type        BetType
+  createdAt   DateTime @default(now())
+}
+
+model Category {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  projects Project[]
+}
+
+model PlatformStats {
+  id               String  @id @default("1" )
+  totalProjects    Int     @default(0)
+  activeProjects   Int     @default(0)
+  totalVolume      Float   @default(0)
+  avgSuccessRate   Float   @default(0)
+  totalPayouts     Float   @default(0)
+  platformEarnings Float   @default(0)
+}
