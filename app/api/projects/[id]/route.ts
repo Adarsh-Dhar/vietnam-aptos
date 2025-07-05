@@ -70,6 +70,51 @@ export async function GET(
   }
 }
 
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const authUser = await authenticateUser(request)
+    if (!authUser) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const project = await prisma.project.findUnique({
+      where: { id: params.id }
+    })
+
+    if (!project) {
+      return NextResponse.json(
+        { error: 'Project not found' },
+        { status: 404 }
+      )
+    }
+
+    if (project.creatorId !== authUser.id) {
+      return NextResponse.json(
+        { error: 'Forbidden' },
+        { status: 403 }
+      )
+    }
+
+    await prisma.project.delete({
+      where: { id: params.id }
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Delete project error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -101,7 +146,7 @@ export async function PUT(
       )
     }
 
-    const { name, description, coverImage, currentHolders } = await request.json()
+    const { name, description, coverImage, currentHolders, status, deadline } = await request.json()
 
     const updatedProject = await prisma.project.update({
       where: { id: params.id },
@@ -109,7 +154,9 @@ export async function PUT(
         name,
         description,
         coverImage,
-        currentHolders
+        currentHolders,
+        status,
+        deadline: deadline ? new Date(deadline) : undefined
       }
     })
 

@@ -96,6 +96,10 @@ export default function FoundersPage() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [editOpen, setEditOpen] = useState(false)
+  const [selectedProject, setSelectedProject] = useState<any>(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [projectToDelete, setProjectToDelete] = useState<any>(null)
 
   const handleCreateProject = async (data: any) => {
     setLoading(true)
@@ -143,6 +147,147 @@ export default function FoundersPage() {
       }
       setError(errMsg)
       console.error("Project creation error:", e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEditProject = async (data: any) => {
+    setLoading(true)
+    setError("")
+    try {
+      const jwt = typeof window !== "undefined" ? localStorage.getItem("jwt") : null
+      const res = await fetch(`/api/projects/${selectedProject.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {})
+        },
+        body: JSON.stringify({
+          ...data,
+          targetHolders: data.targetHolders ? parseInt(data.targetHolders, 10) : undefined,
+          deadline: data.deadline ? data.deadline.toISOString() : undefined,
+        }),
+      })
+      if (!res.ok) {
+        let errMsg = `Error: ${res.status}`
+        try {
+          const err = await res.json()
+          errMsg += err.error ? ` - ${err.error}` : ""
+        } catch (e) {}
+        setError(errMsg)
+        setLoading(false)
+        return
+      }
+      const updated = await res.json()
+      setProjects(projects.map(p => p.id === updated.id ? updated : p))
+      setEditOpen(false)
+      setSelectedProject(null)
+      form.reset()
+    } catch (e) {
+      setError("Failed to update project")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteProject = async () => {
+    setLoading(true)
+    setError("")
+    try {
+      const jwt = typeof window !== "undefined" ? localStorage.getItem("jwt") : null
+      const res = await fetch(`/api/projects/${projectToDelete.id}`, {
+        method: "DELETE",
+        headers: {
+          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {})
+        }
+      })
+      if (!res.ok) {
+        let errMsg = `Error: ${res.status}`
+        try {
+          const err = await res.json()
+          errMsg += err.error ? ` - ${err.error}` : ""
+        } catch (e) {}
+        setError(errMsg)
+        setLoading(false)
+        return
+      }
+      setProjects(projects.filter(p => p.id !== projectToDelete.id))
+      setDeleteConfirmOpen(false)
+      setProjectToDelete(null)
+    } catch (e) {
+      setError("Failed to delete project")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSaveDraft = async (data: any) => {
+    setLoading(true)
+    setError("")
+    try {
+      const jwt = typeof window !== "undefined" ? localStorage.getItem("jwt") : null
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {})
+        },
+        body: JSON.stringify({
+          ...data,
+          targetHolders: data.targetHolders ? parseInt(data.targetHolders, 10) : undefined,
+          deadline: data.deadline ? data.deadline.toISOString() : undefined,
+          status: "PENDING_VALIDATION"
+        }),
+      })
+      if (!res.ok) {
+        let errMsg = `Error: ${res.status}`
+        try {
+          const err = await res.json()
+          errMsg += err.error ? ` - ${err.error}` : ""
+        } catch (e) {}
+        setError(errMsg)
+        setLoading(false)
+        return
+      }
+      const newProject = await res.json()
+      setProjects([newProject, ...projects])
+      setOpen(false)
+      form.reset()
+    } catch (e) {
+      setError("Failed to save draft")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePublishDraft = async (project: any) => {
+    setLoading(true)
+    setError("")
+    try {
+      const jwt = typeof window !== "undefined" ? localStorage.getItem("jwt") : null
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {})
+        },
+        body: JSON.stringify({ status: "ACTIVE" }),
+      })
+      if (!res.ok) {
+        let errMsg = `Error: ${res.status}`
+        try {
+          const err = await res.json()
+          errMsg += err.error ? ` - ${err.error}` : ""
+        } catch (e) {}
+        setError(errMsg)
+        setLoading(false)
+        return
+      }
+      const updated = await res.json()
+      setProjects(projects.map(p => p.id === updated.id ? updated : p))
+    } catch (e) {
+      setError("Failed to publish draft")
     } finally {
       setLoading(false)
     }
@@ -354,13 +499,20 @@ export default function FoundersPage() {
                     </div>
 
                     <div className="flex gap-1 ml-2">
-                      <Button size="sm" variant="ghost" className="text-gray-400 hover:text-white">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="text-gray-400 hover:text-white">
+                      <Button size="sm" variant="ghost" className="text-gray-400 hover:text-white" onClick={() => {
+                        setEditOpen(true);
+                        setSelectedProject(project);
+                        const resetData: any = { ...project };
+                        if ((project as any).deadline && !isNaN(Date.parse((project as any).deadline))) {
+                          resetData.deadline = new Date((project as any).deadline);
+                        } else {
+                          delete resetData.deadline;
+                        }
+                        form.reset(resetData);
+                      }}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="ghost" className="text-gray-400 hover:text-red-400">
+                      <Button size="sm" variant="ghost" className="text-gray-400 hover:text-red-400" onClick={() => { setDeleteConfirmOpen(true); setProjectToDelete(project) }}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -408,6 +560,11 @@ export default function FoundersPage() {
                           Launch
                         </Button>
                       )}
+                      {project.status === "PENDING_VALIDATION" && (
+                        <Button size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={() => handlePublishDraft(project)}>
+                          Publish
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -450,6 +607,124 @@ export default function FoundersPage() {
             </div>
           </Card>
         </motion.div>
+
+        {/* Edit Project Dialog */}
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent className="max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Project</DialogTitle>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleEditProject)} className="space-y-4">
+                <FormField name="name" control={form.control} render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Project Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="AI-Powered Fitness App" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField name="description" control={form.control} render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Describe your project..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField name="aptosContract" control={form.control} render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Aptos Contract Address</FormLabel>
+                    <FormControl>
+                      <Input placeholder="0x..." {...field} disabled />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField name="coverImage" control={form.control} render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cover Image URL</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField name="listingFee" control={form.control} render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Listing Fee (APT)</FormLabel>
+                    <FormControl>
+                      <Input type="number" min={0} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField name="targetHolders" control={form.control} render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Target Holders</FormLabel>
+                    <FormControl>
+                      <Input placeholder="10000" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <Controller
+                  name="deadline"
+                  control={form.control}
+                  rules={{ required: "Deadline is required" }}
+                  render={({ field, fieldState }) => (
+                    <FormItem>
+                      <FormLabel>Deadline</FormLabel>
+                      <FormControl>
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={date => {
+                            if (date) field.onChange(date)
+                          }}
+                          defaultMonth={field.value || new Date()}
+                          className="rounded-md border"
+                        />
+                      </FormControl>
+                      {!field.value && (
+                        <p className="text-sm text-red-500">Please select a deadline date.</p>
+                      )}
+                      <FormMessage>{fieldState.error?.message}</FormMessage>
+                    </FormItem>
+                  )}
+                />
+                <FormField name="categories" control={form.control} render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Categories</FormLabel>
+                    <FormControl>
+                      <Select onValueChange={val => field.onChange([val])} value={field.value?.[0] || ""}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Health Tech">Health Tech</SelectItem>
+                          <SelectItem value="Sustainability">Sustainability</SelectItem>
+                          <SelectItem value="Education">Education</SelectItem>
+                          <SelectItem value="DeFi">DeFi</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                {error && <div className="text-red-500 text-sm">{error}</div>}
+                <DialogFooter>
+                  <Button type="submit" className="w-full bg-gradient-to-r from-[#00F0FF] to-[#8B5CF6]" disabled={loading}>
+                    {loading ? "Saving..." : "Save Changes"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )
