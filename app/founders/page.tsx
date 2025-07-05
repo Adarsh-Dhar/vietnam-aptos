@@ -18,6 +18,14 @@ import {
   Edit,
   Trash2,
 } from "lucide-react"
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
+import { Form, FormItem, FormLabel, FormControl, FormMessage, FormField } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
+import { Calendar } from "@/components/ui/calendar"
+import { useForm, Controller } from "react-hook-form"
+import { useState } from "react"
 
 const founderProjects = [
   {
@@ -72,6 +80,74 @@ const stats = [
 ]
 
 export default function FoundersPage() {
+  const [open, setOpen] = useState(false)
+  const [projects, setProjects] = useState(founderProjects)
+  const form = useForm({
+    defaultValues: {
+      name: "",
+      description: "",
+      aptosContract: "",
+      coverImage: "",
+      listingFee: 10,
+      targetHolders: "",
+      deadline: undefined,
+      categories: [],
+    },
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+
+  const handleCreateProject = async (data: any) => {
+    setLoading(true)
+    setError("")
+    try {
+      const jwt = typeof window !== "undefined" ? localStorage.getItem("jwt") : null
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {})
+        },
+        body: JSON.stringify({
+          ...data,
+          targetHolders: data.targetHolders ? parseInt(data.targetHolders, 10) : undefined,
+          deadline: data.deadline ? data.deadline.toISOString() : undefined,
+        }),
+      })
+      if (!res.ok) {
+        let errMsg = `Error: ${res.status}`
+        try {
+          const err = await res.json()
+          errMsg += err.error ? ` - ${err.error}` : ""
+        } catch (e) {
+          // ignore JSON parse error
+        }
+        setError(errMsg)
+        console.error("Project creation failed:", errMsg)
+        setLoading(false)
+        return
+      }
+      const newProject = await res.json()
+      setProjects([newProject, ...projects])
+      setOpen(false)
+      form.reset()
+    } catch (e) {
+      let errMsg = "Failed to create project"
+      function isError(obj: unknown): obj is Error {
+        return !!obj && typeof obj === "object" && "message" in obj && typeof (obj as any).message === "string"
+      }
+      if (isError(e)) {
+        errMsg += ": " + e.message
+      } else if (typeof e === "string") {
+        errMsg += ": " + e
+      }
+      setError(errMsg)
+      console.error("Project creation error:", e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#0A0F2B] particle-bg">
       <div className="container mx-auto px-4 py-8">
@@ -82,13 +158,131 @@ export default function FoundersPage() {
               <h1 className="text-4xl font-bold text-white mb-2">Founder Dashboard</h1>
               <p className="text-gray-400">Validate your startup ideas with blockchain-powered community feedback</p>
             </div>
-            <Button
-              size="lg"
-              className="bg-gradient-to-r from-[#00F0FF] to-[#8B5CF6] hover:from-[#00F0FF]/80 hover:to-[#8B5CF6]/80"
-            >
-              <Plus className="mr-2 h-5 w-5" />
-              Submit New Project
-            </Button>
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  size="lg"
+                  className="bg-gradient-to-r from-[#00F0FF] to-[#8B5CF6] hover:from-[#00F0FF]/80 hover:to-[#8B5CF6]/80"
+                >
+                  <Plus className="mr-2 h-5 w-5" />
+                  Submit New Project
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Submit New Project</DialogTitle>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(handleCreateProject)} className="space-y-4">
+                    <FormField name="name" control={form.control} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Project Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="AI-Powered Fitness App" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField name="description" control={form.control} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Describe your project..." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField name="aptosContract" control={form.control} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Aptos Contract Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="0x..." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField name="coverImage" control={form.control} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cover Image URL</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://..." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField name="listingFee" control={form.control} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Listing Fee (APT)</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField name="targetHolders" control={form.control} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Target Holders</FormLabel>
+                        <FormControl>
+                          <Input placeholder="10000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <Controller
+                      name="deadline"
+                      control={form.control}
+                      rules={{ required: "Deadline is required" }}
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <FormLabel>Deadline</FormLabel>
+                          <FormControl>
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={date => {
+                                if (date) field.onChange(date)
+                              }}
+                              defaultMonth={field.value || new Date()}
+                              className="rounded-md border"
+                            />
+                          </FormControl>
+                          {!field.value && (
+                            <p className="text-sm text-red-500">Please select a deadline date.</p>
+                          )}
+                          <FormMessage>{fieldState.error?.message}</FormMessage>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField name="categories" control={form.control} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Categories</FormLabel>
+                        <FormControl>
+                          <Select onValueChange={val => field.onChange([val])}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Health Tech">Health Tech</SelectItem>
+                              <SelectItem value="Sustainability">Sustainability</SelectItem>
+                              <SelectItem value="Education">Education</SelectItem>
+                              <SelectItem value="DeFi">DeFi</SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    {error && <div className="text-red-500 text-sm">{error}</div>}
+                    <DialogFooter>
+                      <Button type="submit" className="w-full bg-gradient-to-r from-[#00F0FF] to-[#8B5CF6]" disabled={loading || !form.getValues("deadline")}>
+                        {loading ? "Submitting..." : "Submit Project"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
           </div>
         </motion.div>
 
@@ -127,7 +321,7 @@ export default function FoundersPage() {
           <h2 className="text-2xl font-bold text-white mb-6">Your Projects</h2>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {founderProjects.map((project, index) => (
+            {projects.map((project, index) => (
               <motion.div
                 key={project.id}
                 initial={{ opacity: 0, x: -20 }}
