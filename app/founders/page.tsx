@@ -141,6 +141,11 @@ export default function FoundersPage() {
       }
       const nftContract = paddedContract;
       const metadataUri = data.coverImage;
+      if (typeof metadataUri !== "string" || !metadataUri.startsWith("http")) {
+        setError("Cover Image URL must be a valid URL string (starting with http...)");
+        setLoading(false);
+        return;
+      }
 
       if (!targetHolders || !deadline || !nftContract || !metadataUri) {
         setError("Missing required fields for contract call");
