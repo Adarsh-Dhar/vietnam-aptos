@@ -4,7 +4,6 @@ module nft_validation::main {
     use aptos_framework::coin;
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::event;
-    use aptos_framework::guid;
     use aptos_std::table::{Self, Table};
     use nft_validation::project::{Self, Project};
     use nft_validation::betting;
@@ -28,6 +27,11 @@ module nft_validation::main {
     const MAX_DURATION: u64 = 2592000; // 30 days in seconds
 
     // Global state
+    struct ProjectCreatedEvent has copy, drop, store {
+        creator: address,
+        project_id: u64,
+    }
+
     struct Platform has key {
         admin: address,
         oracle_address: address,
@@ -57,7 +61,7 @@ module nft_validation::main {
     }
 
     // Initialize the platform
-    public fun initialize(admin: &signer, oracle_address: address) {
+    public entry fun initialize(admin: &signer, oracle_address: address) {
         let admin_addr = signer::address_of(admin);
         assert!(!exists<Platform>(admin_addr), E_ALREADY_INITIALIZED);
 
@@ -65,13 +69,13 @@ module nft_validation::main {
     }
 
     // Create a new NFT validation project
-    public fun create_project(
+    public entry fun create_project(
         creator: &signer,
         target_holders: u64,
         deadline: u64,
         nft_contract: address,
         metadata_uri: vector<u8>,
-    ): u64 acquires Platform {
+    ) acquires Platform {
         let creator_addr = signer::address_of(creator);
         let platform = borrow_global_mut<Platform>(@nft_validation);
         
@@ -99,11 +103,15 @@ module nft_validation::main {
 
         table::add(&mut platform.projects, project_id, new_project);
 
-        project_id
+        // Emit event
+        // event::emit_event(&mut platform.project_created_event_handle, ProjectCreatedEvent {
+        //     creator: creator_addr,
+        //     project_id,
+        // });
     }
 
     // Place a bet on a project
-    public fun place_bet(
+    public entry fun place_bet(
         bettor: &signer,
         project_id: u64,
         amount: u64,
@@ -140,7 +148,7 @@ module nft_validation::main {
     }
 
     // Resolve project (called by oracle)
-    public fun resolve_project(
+    public entry fun resolve_project(
         oracle: &signer,
         project_id: u64,
         final_holders: u64,
@@ -162,7 +170,7 @@ module nft_validation::main {
     }
 
     // Claim payout after project resolution
-    public fun claim_payout(
+    public entry fun claim_payout(
         admin: &signer,
         claimer: &signer,
         project_id: u64,
@@ -188,7 +196,7 @@ module nft_validation::main {
     }
 
     // Admin functions
-    public fun update_oracle(admin: &signer, new_oracle: address) acquires Platform {
+    public entry fun update_oracle(admin: &signer, new_oracle: address) acquires Platform {
         let admin_addr = signer::address_of(admin);
         let platform = borrow_global_mut<Platform>(@nft_validation);
         assert!(admin_addr == platform.admin, E_UNAUTHORIZED);
@@ -196,7 +204,7 @@ module nft_validation::main {
         platform.oracle_address = new_oracle;
     }
 
-    public fun update_fees(admin: &signer, listing_fee: u64, platform_fee_bps: u64) acquires Platform {
+    public entry fun update_fees(admin: &signer, listing_fee: u64, platform_fee_bps: u64) acquires Platform {
         let admin_addr = signer::address_of(admin);
         let platform = borrow_global_mut<Platform>(@nft_validation);
         assert!(admin_addr == platform.admin, E_UNAUTHORIZED);
@@ -205,7 +213,7 @@ module nft_validation::main {
         platform.platform_fee_bps = platform_fee_bps;
     }
 
-    public fun withdraw_fees(admin: &signer, amount: u64) acquires Platform {
+    public entry fun withdraw_fees(admin: &signer, amount: u64) acquires Platform {
         let admin_addr = signer::address_of(admin);
         let platform = borrow_global_mut<Platform>(@nft_validation);
         assert!(admin_addr == platform.admin, E_UNAUTHORIZED);

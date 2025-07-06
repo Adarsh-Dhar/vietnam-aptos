@@ -26,6 +26,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar"
 import { useForm, Controller } from "react-hook-form"
 import { useState } from "react"
+import { createProject as createProjectOnChain, initializePlatform } from "@/lib/contract"
 
 const founderProjects = [
   {
@@ -105,7 +106,57 @@ export default function FoundersPage() {
     setLoading(true)
     setError("")
     try {
-      const jwt = typeof window !== "undefined" ? localStorage.getItem("jwt") : null
+      // 0. Initialize platform
+      // try {
+      //   await initializePlatform();
+      // } catch (initErr) {
+      //   setError("Failed to initialize platform: " + (initErr));
+      //   setLoading(false);
+      //   return;
+      // }
+      // 1. Call contract
+      const targetHolders = data.targetHolders ? parseInt(data.targetHolders, 10) : undefined;
+      const deadline = data.deadline ? Math.floor(data.deadline.getTime() / 1000) : undefined; // UNIX seconds
+
+      // Validate and pad hex string for contract address
+      function isValidHex(str: string) {
+        return /^0x[0-9a-fA-F]+$/.test(str);
+      }
+      function padHexAddress(str: string) {
+        if (!str.startsWith("0x")) return str;
+        const hex = str.slice(2);
+        if (hex.length > 64) return null; // too long
+        return "0x" + hex.padStart(64, "0");
+      }
+      if (!isValidHex(data.aptosContract)) {
+        setError("Aptos Contract Address must be a valid hex string (e.g., 0x1234...)");
+        setLoading(false);
+        return;
+      }
+      const paddedContract = padHexAddress(data.aptosContract);
+      if (!paddedContract) {
+        setError("Aptos Contract Address is too long (max 64 hex chars after 0x)");
+        setLoading(false);
+        return;
+      }
+      const nftContract = paddedContract;
+      const metadataUri = data.coverImage;
+
+      if (!targetHolders || !deadline || !nftContract || !metadataUri) {
+        setError("Missing required fields for contract call");
+        setLoading(false);
+        return;
+      }
+
+      const txHash = await createProjectOnChain({
+        targetHolders,
+        deadline,
+        nftContract,
+        metadataUri,
+      });
+
+      // 2. Add to DB
+      const jwt = typeof window !== "undefined" ? localStorage.getItem("jwt") : null;
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { 
@@ -114,41 +165,37 @@ export default function FoundersPage() {
         },
         body: JSON.stringify({
           ...data,
-          targetHolders: data.targetHolders ? parseInt(data.targetHolders, 10) : undefined,
+          targetHolders,
           deadline: data.deadline ? data.deadline.toISOString() : undefined,
+          contractTxHash: txHash, // Optionally store tx hash
         }),
-      })
+      });
+
       if (!res.ok) {
-        let errMsg = `Error: ${res.status}`
+        let errMsg = `Error: ${res.status}`;
         try {
-          const err = await res.json()
-          errMsg += err.error ? ` - ${err.error}` : ""
-        } catch (e) {
-          // ignore JSON parse error
-        }
-        setError(errMsg)
-        console.error("Project creation failed:", errMsg)
-        setLoading(false)
-        return
+          const err = await res.json();
+          errMsg += err.error ? ` - ${err.error}` : "";
+        } catch (e) {}
+        setError(errMsg);
+        setLoading(false);
+        return;
       }
-      const newProject = await res.json()
-      setProjects([newProject, ...projects])
-      setOpen(false)
-      form.reset()
+      const newProject = await res.json();
+      setProjects([newProject, ...projects]);
+      setOpen(false);
+      form.reset();
     } catch (e) {
-      let errMsg = "Failed to create project"
-      function isError(obj: unknown): obj is Error {
-        return !!obj && typeof obj === "object" && "message" in obj && typeof (obj as any).message === "string"
-      }
-      if (isError(e)) {
-        errMsg += ": " + e.message
+      let errMsg = "Failed to create project";
+      if (typeof e === "object" && e && "message" in e) {
+        errMsg += ": " + (e as any).message;
       } else if (typeof e === "string") {
-        errMsg += ": " + e
+        errMsg += ": " + e;
       }
-      setError(errMsg)
-      console.error("Project creation error:", e)
+      setError(errMsg);
+      console.error("Project creation error:", e);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 

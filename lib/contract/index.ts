@@ -4,13 +4,13 @@
 import { AptosClient } from "aptos";
 
 const MODULES = {
-  bet_types: "a8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::bet_types",
-  project: "a8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::project",
-  betting: "a8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::betting",
-  security: "a8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::security",
-  main: "a8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::main",
-  nft_validator: "a8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::nft_validator",
-  oracle: "a8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::oracle",
+  bet_types: "8b7c51d897b187ef4712def1cca92de6d384272892725f25c178a93a3d46e6fb::bet_types",
+  project: "8b7c51d897b187ef4712def1cca92de6d384272892725f25c178a93a3d46e6fb::project",
+  betting: "8b7c51d897b187ef4712def1cca92de6d384272892725f25c178a93a3d46e6fb::betting",
+  security: "8b7c51d897b187ef4712def1cca92de6d384272892725f25c178a93a3d46e6fb::security",
+  main: "8b7c51d897b187ef4712def1cca92de6d384272892725f25c178a93a3d46e6fb::main",
+  nft_validator: "8b7c51d897b187ef4712def1cca92de6d384272892725f25c178a93a3d46e6fb::nft_validator",
+  oracle: "8b7c51d897b187ef4712def1cca92de6d384272892725f25c178a93a3d46e6fb::oracle",
 };
 
 const MODULE = MODULES.main;
@@ -31,6 +31,7 @@ const NEW_ORACLE = "0x7";
 const LISTING_FEE = 1000000;
 const PLATFORM_FEE_BPS = 100;
 const WITHDRAW_AMOUNT = 500000;
+const ORACLE_ADDRESS = "0x8b7c51d897b187ef4712def1cca92de6d384272892725f25c178a93a3d46e6fb";
 
 // Helper to get the connected wallet
 function getAptosWallet() {
@@ -47,22 +48,22 @@ const client = new AptosClient(NODE_URL);
 // --- Contract Functions ---
 
 // 1. Initialize Platform
-export async function initializePlatform({ oracleAddress, onResult }: { oracleAddress: string, onResult?: (hash: string) => void }) {
+// No params. Uses MODULES.oracle as the oracle address.
+export async function initializePlatform() {
   const wallet = getAptosWallet();
   const payload = {
     type: "entry_function_payload",
     function: `${MODULES.main}::initialize`,
     type_arguments: [],
-    arguments: [oracleAddress],
+    arguments: [ORACLE_ADDRESS],
   };
   const response = await wallet.signAndSubmitTransaction(payload);
   await client.waitForTransaction(response.hash);
-  if (onResult) onResult(response.hash);
   return response.hash;
 }
 
 // 2. Create Project
-export async function createProject({ targetHolders, deadline, nftContract, metadataUri, onResult }: { targetHolders: number, deadline: number, nftContract: string, metadataUri: string, onResult?: (hash: string) => void }) {
+export async function createProject({ targetHolders, deadline, nftContract = "0x6", metadataUri, onResult }: { targetHolders: number, deadline: number, nftContract?: string, metadataUri: string, onResult?: (hash: string) => void }) {
   const wallet = getAptosWallet();
   const payload = {
     type: "entry_function_payload",
