@@ -85,14 +85,14 @@ export default function FoundersPage() {
   const [projects, setProjects] = useState(founderProjects)
   const form = useForm({
     defaultValues: {
-      name: "",
-      description: "",
-      aptosContract: "",
-      coverImage: "",
+      name: "Test Project",
+      description: "A project created with Move test defaults.",
+      aptosContract: "0x1000000000000000000000000000000000000000000000000000000000000001",
+      coverImage: "https://images.unsplash.com/photo-1506744038136-46273834b3fb",
       listingFee: 10,
-      targetHolders: "",
-      deadline: undefined,
-      categories: [],
+      targetHolders: "1000",
+      deadline: new Date(Date.now() + 86400 * 10 * 1000), // 10 days from now
+      categories: ["Health Tech"],
     },
   })
   const [loading, setLoading] = useState(false)
@@ -107,13 +107,13 @@ export default function FoundersPage() {
     setError("")
     try {
       // 0. Initialize platform
-      // try {
-      //   await initializePlatform();
-      // } catch (initErr) {
-      //   setError("Failed to initialize platform: " + (initErr));
-      //   setLoading(false);
-      //   return;
-      // }
+      try {
+        await initializePlatform();
+      } catch (initErr) {
+        setError("Failed to initialize platform: " + (initErr));
+        setLoading(false);
+        return;
+      }
       // 1. Call contract
       const targetHolders = data.targetHolders ? parseInt(data.targetHolders, 10) : undefined;
       const deadline = data.deadline ? Math.floor(data.deadline.getTime() / 1000) : undefined; // UNIX seconds
