@@ -84,11 +84,6 @@ module nft_validation::main {
         assert!(deadline > current_time + platform.min_duration, E_INVALID_DEADLINE);
         assert!(deadline <= current_time + platform.max_duration, E_INVALID_DEADLINE);
 
-        // Charge listing fee
-        let listing_fee = coin::withdraw<AptosCoin>(creator, platform.listing_fee);
-        coin::deposit(@nft_validation, listing_fee);
-        platform.total_fees_collected = platform.total_fees_collected + platform.listing_fee;
-
         // Create project
         platform.project_counter = platform.project_counter + 1;
         let project_id = platform.project_counter;
