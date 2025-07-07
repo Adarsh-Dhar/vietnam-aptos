@@ -57,21 +57,21 @@ export async function initializePlatform() {
     type_arguments: [],
     arguments: [ORACLE_ADDRESS],
   };
-  const response = await wallet.signAndSubmitTransaction(payload);
+  const response = await wallet.signAndSubmitTransaction({ payload });
   await client.waitForTransaction(response.hash);
   return response.hash;
 }
 
 // 2. Create Project
-export async function createProject({ targetHolders, deadline, nftContract = "0x6", metadataUri, onResult }: { targetHolders: number, deadline: number, nftContract?: string, metadataUri: string, onResult?: (hash: string) => void }) {
+export async function createProject({ targetHolders, deadline, nftContract = "0x6", metadataUri, onResult }: { targetHolders: number, deadline: number, nftContract?: string, metadataUri: number[] | Uint8Array, onResult?: (hash: string) => void }) {
   const wallet = getAptosWallet();
   const payload = {
     type: "entry_function_payload",
     function: `${MODULES.main}::create_project`,
     type_arguments: [],
-    arguments: [targetHolders, deadline, nftContract, new TextEncoder().encode(metadataUri)],
+    arguments: [targetHolders, deadline, nftContract, metadataUri],
   };
-  const response = await wallet.signAndSubmitTransaction(payload);
+  const response = await wallet.signAndSubmitTransaction({ payload });
   await client.waitForTransaction(response.hash);
   if (onResult) onResult(response.hash);
   return response.hash;
@@ -86,7 +86,7 @@ export async function placeBet({ projectId, amount, betType, onResult }: { proje
     type_arguments: [],
     arguments: [projectId, amount, betType],
   };
-  const response = await wallet.signAndSubmitTransaction(payload);
+  const response = await wallet.signAndSubmitTransaction({ payload });
   await client.waitForTransaction(response.hash);
   if (onResult) onResult(response.hash);
   return response.hash;
@@ -101,7 +101,7 @@ export async function resolveProject({ projectId, finalHolders, onResult }: { pr
     type_arguments: [],
     arguments: [projectId, finalHolders],
   };
-  const response = await wallet.signAndSubmitTransaction(payload);
+  const response = await wallet.signAndSubmitTransaction({ payload });
   await client.waitForTransaction(response.hash);
   if (onResult) onResult(response.hash);
   return response.hash;
@@ -116,7 +116,7 @@ export async function claimPayout({ claimerAddress, projectId, onResult }: { cla
     type_arguments: [],
     arguments: [claimerAddress, projectId],
   };
-  const response = await wallet.signAndSubmitTransaction(payload);
+  const response = await wallet.signAndSubmitTransaction({ payload });
   await client.waitForTransaction(response.hash);
   if (onResult) onResult(response.hash);
   return response.hash;
@@ -131,7 +131,7 @@ export async function updateOracle({ newOracle, onResult }: { newOracle: string,
     type_arguments: [],
     arguments: [newOracle],
   };
-  const response = await wallet.signAndSubmitTransaction(payload);
+  const response = await wallet.signAndSubmitTransaction({ payload });
   await client.waitForTransaction(response.hash);
   if (onResult) onResult(response.hash);
   return response.hash;
@@ -146,7 +146,7 @@ export async function updateFees({ listingFee, platformFeeBps, onResult }: { lis
     type_arguments: [],
     arguments: [listingFee, platformFeeBps],
   };
-  const response = await wallet.signAndSubmitTransaction(payload);
+  const response = await wallet.signAndSubmitTransaction({ payload });
   await client.waitForTransaction(response.hash);
   if (onResult) onResult(response.hash);
   return response.hash;
@@ -161,7 +161,7 @@ export async function withdrawFees({ amount, onResult }: { amount: number, onRes
     type_arguments: [],
     arguments: [amount],
   };
-  const response = await wallet.signAndSubmitTransaction(payload);
+  const response = await wallet.signAndSubmitTransaction({ payload });
   await client.waitForTransaction(response.hash);
   if (onResult) onResult(response.hash);
   return response.hash;

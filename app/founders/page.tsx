@@ -107,6 +107,7 @@ export default function FoundersPage() {
     setError("")
     try {
       // 0. Initialize platform
+      /*
       try {
         await initializePlatform();
       } catch (initErr) {
@@ -114,6 +115,7 @@ export default function FoundersPage() {
         setLoading(false);
         return;
       }
+      */
       // 1. Call contract
       const targetHolders = data.targetHolders ? parseInt(data.targetHolders, 10) : undefined;
       const deadline = data.deadline ? Math.floor(data.deadline.getTime() / 1000) : undefined; // UNIX seconds
@@ -140,8 +142,12 @@ export default function FoundersPage() {
         return;
       }
       const nftContract = paddedContract;
-      const metadataUri = data.coverImage;
-      if (typeof metadataUri !== "string" || !metadataUri.startsWith("http")) {
+      // Encode metadataUri as Uint8Array for contract call
+      let metadataUri = typeof window !== "undefined" && window.TextEncoder
+        ? new window.TextEncoder().encode(data.coverImage)
+        : new TextEncoder().encode(data.coverImage);
+      console.log("metadataUri for contract:", metadataUri, Array.isArray(metadataUri), metadataUri instanceof Uint8Array);
+      if (typeof data.coverImage !== "string" || !data.coverImage.startsWith("http")) {
         setError("Cover Image URL must be a valid URL string (starting with http...)");
         setLoading(false);
         return;
@@ -151,6 +157,26 @@ export default function FoundersPage() {
         setError("Missing required fields for contract call");
         setLoading(false);
         return;
+      }
+
+      // Log deadline and current time for debugging
+      const currentTime = Math.floor(Date.now() / 1000);
+      console.log("deadline:", deadline, "current_time:", currentTime, "min:", currentTime + 86400, "max:", currentTime + 2592000);
+
+      // Log initialization status of Platform resource
+      try {
+        const moduleAddress = "0x4d41ab90c2054c3bc11d2947f0cdb98d3de516a65229625d5f9382e1787eacd1"; // Replace with your module address if different
+        const resourceType = `${moduleAddress}::main::Platform`;
+        const nodeUrl = "https://fullnode.devnet.aptoslabs.com/v1";
+        const res = await fetch(`${nodeUrl}/accounts/${moduleAddress}/resource/${encodeURIComponent(resourceType)}`);
+        if (res.ok) {
+          const data = await res.json();
+          console.log("Platform resource exists:", true, data);
+        } else {
+          console.log("Platform resource exists:", false, await res.text());
+        }
+      } catch (e) {
+        console.log("Error checking Platform resource:", e);
       }
 
       const txHash = await createProjectOnChain({
