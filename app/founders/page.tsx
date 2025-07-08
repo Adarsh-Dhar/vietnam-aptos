@@ -165,8 +165,8 @@ export default function FoundersPage() {
 
       // Log initialization status of Platform resource
       try {
-        const moduleAddress = "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6"; // Module address
-        const adminAddress = "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6"; // Admin address (profile address)
+        const moduleAddress = "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b"; // Module address
+        const adminAddress = "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b"; // Admin address (profile address)
         const resourceType = `${moduleAddress}::main::Platform`;
         const nodeUrl = "https://fullnode.devnet.aptoslabs.com/v1";
         const res = await fetch(`${nodeUrl}/accounts/${adminAddress}/resource/${encodeURIComponent(resourceType)}`);

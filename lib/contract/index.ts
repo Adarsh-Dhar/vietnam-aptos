@@ -4,13 +4,13 @@
 import { AptosClient } from "aptos";
 
 const MODULES = {
-  bet_types: "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6::bet_types",
-  project: "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6::project",
-  betting: "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6::betting",
-  security: "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6::security",
-  main: "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6::main",
-  nft_validator: "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6::nft_validator",
-  oracle: "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6::oracle",
+  bet_types: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::bet_types",
+  project: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::project",
+  betting: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::betting",
+  security: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::security",
+  main: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::main",
+  nft_validator: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::nft_validator",
+  oracle: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::oracle",
 };
 
 const MODULE = MODULES.main;
@@ -31,7 +31,7 @@ const NEW_ORACLE = "0x7";
 const LISTING_FEE = 1000000;
 const PLATFORM_FEE_BPS = 100;
 const WITHDRAW_AMOUNT = 500000;
-const ORACLE_ADDRESS = "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6";
+const ORACLE_ADDRESS = "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b";
 
 // Helper to get the connected wallet
 function getAptosWallet() {
