@@ -165,10 +165,11 @@ export default function FoundersPage() {
 
       // Log initialization status of Platform resource
       try {
-        const moduleAddress = "0x4d41ab90c2054c3bc11d2947f0cdb98d3de516a65229625d5f9382e1787eacd1"; // Replace with your module address if different
+        const moduleAddress = "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6"; // Module address
+        const adminAddress = "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6"; // Admin address (profile address)
         const resourceType = `${moduleAddress}::main::Platform`;
         const nodeUrl = "https://fullnode.devnet.aptoslabs.com/v1";
-        const res = await fetch(`${nodeUrl}/accounts/${moduleAddress}/resource/${encodeURIComponent(resourceType)}`);
+        const res = await fetch(`${nodeUrl}/accounts/${adminAddress}/resource/${encodeURIComponent(resourceType)}`);
         if (res.ok) {
           const data = await res.json();
           console.log("Platform resource exists:", true, data);

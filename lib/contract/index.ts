@@ -4,13 +4,13 @@
 import { AptosClient } from "aptos";
 
 const MODULES = {
-  bet_types: "0x4d41ab90c2054c3bc11d2947f0cdb98d3de516a65229625d5f9382e1787eacd1::bet_types",
-  project: "0x4d41ab90c2054c3bc11d2947f0cdb98d3de516a65229625d5f9382e1787eacd1::project",
-  betting: "0x4d41ab90c2054c3bc11d2947f0cdb98d3de516a65229625d5f9382e1787eacd1::betting",
-  security: "0x4d41ab90c2054c3bc11d2947f0cdb98d3de516a65229625d5f9382e1787eacd1::security",
-  main: "0x4d41ab90c2054c3bc11d2947f0cdb98d3de516a65229625d5f9382e1787eacd1::main",
-  nft_validator: "0x4d41ab90c2054c3bc11d2947f0cdb98d3de516a65229625d5f9382e1787eacd1::nft_validator",
-  oracle: "0x4d41ab90c2054c3bc11d2947f0cdb98d3de516a65229625d5f9382e1787eacd1::oracle",
+  bet_types: "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6::bet_types",
+  project: "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6::project",
+  betting: "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6::betting",
+  security: "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6::security",
+  main: "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6::main",
+  nft_validator: "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6::nft_validator",
+  oracle: "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6::oracle",
 };
 
 const MODULE = MODULES.main;
@@ -31,7 +31,7 @@ const NEW_ORACLE = "0x7";
 const LISTING_FEE = 1000000;
 const PLATFORM_FEE_BPS = 100;
 const WITHDRAW_AMOUNT = 500000;
-const ORACLE_ADDRESS = "0x4d41ab90c2054c3bc11d2947f0cdb98d3de516a65229625d5f9382e1787eacd1";
+const ORACLE_ADDRESS = "0xe1af3db482e4f92566bf24aecfb2e2702b91cf57ab70e026ffd42816eb1916e6";
 
 // Helper to get the connected wallet
 function getAptosWallet() {
@@ -63,7 +63,7 @@ export async function initializePlatform() {
 }
 
 // 2. Create Project
-export async function createProject({ targetHolders, deadline, nftContract = "0x6", metadataUri, onResult }: { targetHolders: number, deadline: number, nftContract?: string, metadataUri: number[] | Uint8Array, onResult?: (hash: string) => void }) {
+export async function createProject({ targetHolders, deadline, nftContract = "0x6", metadataUri, onResult, max_gas_amount = 100000, gas_unit_price = 100 }: { targetHolders: number, deadline: number, nftContract?: string, metadataUri: number[] | Uint8Array, onResult?: (hash: string) => void, max_gas_amount?: number, gas_unit_price?: number }) {
   const wallet = getAptosWallet();
   const payload = {
     type: "entry_function_payload",
@@ -71,7 +71,12 @@ export async function createProject({ targetHolders, deadline, nftContract = "0x
     type_arguments: [],
     arguments: [targetHolders, deadline, nftContract, metadataUri],
   };
-  const response = await wallet.signAndSubmitTransaction({ payload });
+  // Pass gas params as top-level fields for wallet compatibility
+  const response = await wallet.signAndSubmitTransaction({
+    payload,
+    max_gas_amount: max_gas_amount.toString(),
+    gas_unit_price: gas_unit_price.toString(),
+  });
   await client.waitForTransaction(response.hash);
   if (onResult) onResult(response.hash);
   return response.hash;

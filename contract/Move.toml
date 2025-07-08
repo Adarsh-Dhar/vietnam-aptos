@@ -4,7 +4,7 @@ version = "1.0.0"
 authors = ["Adarsh Dhar dharadarsh0@gmail.com"]
 
 [addresses]
-nft_validation = "0x4d41ab90c2054c3bc11d2947f0cdb98d3de516a65229625d5f9382e1787eacd1"
+nft_validation = "_"
 aptos_framework = "0x1"
 aptos_token = "0x3"
 
