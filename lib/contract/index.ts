@@ -63,20 +63,24 @@ export async function initializePlatform() {
 }
 
 // 2. Create Project
-export async function createProject({ targetHolders, deadline, nftContract = "0x6", metadataUri, onResult, max_gas_amount = 100000, gas_unit_price = 100 }: { targetHolders: number, deadline: number, nftContract?: string, metadataUri: number[] | Uint8Array, onResult?: (hash: string) => void, max_gas_amount?: number, gas_unit_price?: number }) {
+export async function createProject({ targetHolders, deadline, nftContract = "0x6", metadataUri, onResult, max_gas_amount = 50000, gas_unit_price = 100 }: { targetHolders: number, deadline: number, nftContract?: string, metadataUri: number[] | Uint8Array, onResult?: (hash: string) => void, max_gas_amount?: number, gas_unit_price?: number }) {
   const wallet = getAptosWallet();
+  console.log("wallet", wallet);
   const payload = {
     type: "entry_function_payload",
     function: `${MODULES.main}::create_project`,
     type_arguments: [],
     arguments: [targetHolders, deadline, nftContract, metadataUri],
   };
+  console.log("payload", payload);
   // Pass gas params as top-level fields for wallet compatibility
   const response = await wallet.signAndSubmitTransaction({
     payload,
     max_gas_amount: max_gas_amount.toString(),
+    max_gas_units: max_gas_amount.toString(), // Added for compatibility
     gas_unit_price: gas_unit_price.toString(),
   });
+  console.log("response", response);
   await client.waitForTransaction(response.hash);
   if (onResult) onResult(response.hash);
   return response.hash;
