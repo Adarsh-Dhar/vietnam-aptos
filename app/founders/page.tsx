@@ -124,20 +124,18 @@ export default function FoundersPage() {
     setError("")
     setLoadingStep("Validating project data...")
     try {
-      // 0. Initialize platform
-      /*
-      try {
-        await initializePlatform();
-      } catch (initErr) {
-        setError("Failed to initialize platform: " + (initErr));
+      // Ensure all required fields are present and valid
+      const targetHolders = data.targetHolders ? parseInt(data.targetHolders, 10) : undefined;
+      const deadline = data.deadline ? Math.floor(data.deadline.getTime() / 1000) : undefined; // Convert to Unix timestamp
+      if (!data.name || !data.description || !targetHolders || !deadline || !data.aptosContract) {
+        setError("All fields are required.");
         setLoading(false);
         return;
       }
-      */
-      // 1. Call contract
-      const targetHolders = data.targetHolders ? parseInt(data.targetHolders, 10) : undefined;
-      const deadline = data.deadline ? Math.floor(data.deadline.getTime() / 1000) : undefined; // UNIX seconds
-
+      // Normalize categories to array of strings
+      const categories = Array.isArray(data.categories)
+        ? data.categories.map((cat: any) => typeof cat === "string" ? cat : cat?.name)
+        : [];
       // Validate and pad hex string for contract address
       function isValidHex(str: string) {
         return /^0x[0-9a-fA-F]+$/.test(str);
@@ -252,6 +250,7 @@ export default function FoundersPage() {
           ...data,
           targetHolders,
           deadline: data.deadline ? data.deadline.toISOString() : undefined,
+          categories,
           contractTxHash: txHash, // Store the confirmed transaction hash
         }),
       });
@@ -481,9 +480,13 @@ export default function FoundersPage() {
             <Dialog open={open} onOpenChange={(val) => {
               setOpen(val);
               if (val) {
+                const current = form.getValues();
                 form.reset({
-                  ...form.getValues(),
+                  ...current,
                   aptosContract: generateRandomHex64(),
+                  categories: Array.isArray(current.categories)
+                    ? current.categories.map((cat: any) => typeof cat === "string" ? cat : cat?.name)
+                    : ["Health Tech"],
                 });
               }
             }}>

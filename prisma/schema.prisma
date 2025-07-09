@@ -54,6 +54,10 @@ model Project {
   currentHolders  Int        @default(0)
   deadline        DateTime
   status          ProjectStatus @default(ACTIVE)
+  supportPool     Float      @default(0)
+  doubtPool       Float      @default(0)
+  totalPool       Float      @default(0)
+  platformFee     Float      @default(0.01)
   bets            Bet[]
   validation      Validation?
   metrics         Metric[]
@@ -83,6 +87,7 @@ model Bet {
   amount    Float
   type      BetType
   odds      Float
+  claimed   Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

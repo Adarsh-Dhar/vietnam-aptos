@@ -4,9 +4,15 @@ import { authenticateUser } from '../../../../../lib/auth'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { params } = context
+    if (!params || !params.id) {
+      return NextResponse.json({ error: 'Missing project id in params' }, { status: 400 })
+    }
+    const projectId = params.id
+
     const authUser = await authenticateUser(request)
     if (!authUser) {
       return NextResponse.json(
@@ -25,7 +31,7 @@ export async function POST(
     }
 
     const project = await prisma.project.findUnique({
-      where: { id: params.id },
+      where: { id: projectId },
       include: {
         bets: true
       }
@@ -52,7 +58,7 @@ export async function POST(
       )
     }
 
-    // Calculate current odds
+    // Calculate current pools
     const supportPool = project.bets
       .filter((bet: { type: string }) => bet.type === 'SUPPORT')
       .reduce((sum: any, bet: { amount: any }) => sum + bet.amount, 0)
@@ -62,15 +68,22 @@ export async function POST(
       .reduce((sum: any, bet: { amount: any }) => sum + bet.amount, 0)
 
     const totalPool = supportPool + doubtPool + amount
-    const odds = type === 'SUPPORT' 
-      ? totalPool / (supportPool + amount)
-      : totalPool / (doubtPool + amount)
+
+    // Calculate odds based on the new bet
+    let odds: number
+    if (type === 'SUPPORT') {
+      const newSupportPool = supportPool + amount
+      odds = totalPool / newSupportPool
+    } else {
+      const newDoubtPool = doubtPool + amount
+      odds = totalPool / newDoubtPool
+    }
 
     // Create or update bet
     const bet = await prisma.bet.upsert({
       where: {
         projectId_userId: {
-          projectId: params.id,
+          projectId: projectId,
           userId: authUser.id
         }
       },
@@ -79,12 +92,26 @@ export async function POST(
         odds
       },
       create: {
-        projectId: params.id,
+        projectId: projectId,
         userId: authUser.id,
         amount,
         type,
         odds
       }
+    })
+
+    // Update project pools
+    const newSupportPool = type === 'SUPPORT' ? supportPool + amount : supportPool
+    const newDoubtPool = type === 'DOUBT' ? doubtPool + amount : doubtPool
+    const newTotalPool = newSupportPool + newDoubtPool
+
+    await prisma.project.update({
+      where: { id: projectId },
+      data: {
+        supportPool: newSupportPool,
+        doubtPool: newDoubtPool,
+        totalPool: newTotalPool
+      } as any // Cast to any to bypass Prisma type error if needed
     })
 
     // Update platform stats
@@ -98,7 +125,15 @@ export async function POST(
       }
     })
 
-    return NextResponse.json(bet)
+    return NextResponse.json({
+      bet,
+      updatedPools: {
+        supportPool: newSupportPool,
+        doubtPool: newDoubtPool,
+        totalPool: newTotalPool
+      },
+      odds
+    })
   } catch (error) {
     console.error('Create bet error:', error)
     return NextResponse.json(
