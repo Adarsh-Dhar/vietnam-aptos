@@ -155,6 +155,21 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(project)
   } catch (error) {
+    // Type-narrowing for Prisma error
+    if (
+      typeof error === 'object' && error !== null &&
+      'code' in error &&
+      (error as any).code === 'P2002' &&
+      'meta' in error &&
+      (error as any).meta &&
+      (error as any).meta.target &&
+      (error as any).meta.target.includes('aptosContract')
+    ) {
+      return NextResponse.json(
+        { error: 'A project with this Aptos contract address already exists. Please use a unique contract address.' },
+        { status: 409 }
+      )
+    }
     console.error('Create project error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
