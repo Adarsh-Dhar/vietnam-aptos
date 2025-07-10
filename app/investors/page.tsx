@@ -27,14 +27,9 @@ import { Input } from "@/components/ui/input"
 import { useState, useEffect } from "react"
 import { Slider } from "@/components/ui/slider"
 import { useWallet } from "@/components/wallet/wallet-provider"
+import { jwtDecode } from "jwt-decode"
 
-// Re-add portfolioStats array at module scope
-const portfolioStats = [
-  { label: "Total Invested", value: "12.5K APT", change: "+2.1K", icon: DollarSign },
-  { label: "Active Bets", value: "24", change: "+6", icon: Target },
-  { label: "Success Rate", value: "72%", change: "+5%", icon: TrendingUp },
-  { label: "Total Returns", value: "8.9K APT", change: "+1.2K", icon: Award },
-]
+// Remove the hardcoded portfolioStats array
 
 export default function InvestorsPage() {
   const [projects, setProjects] = useState<any[]>([])
@@ -43,9 +38,13 @@ export default function InvestorsPage() {
   const [betAmount, setBetAmount] = useState([10])
   const [betType, setBetType] = useState<'SUPPORT' | 'DOUBT'>('SUPPORT')
   const [isPlacingBet, setIsPlacingBet] = useState(false)
+  const [betProjects, setBetProjects] = useState<string[]>([])
   const [isAuthenticating, setIsAuthenticating] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const { isConnected, address, connect } = useWallet()
+  const [portfolioStats, setPortfolioStats] = useState<any>(null)
+  const [statsLoading, setStatsLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchProjects() {
@@ -66,21 +65,32 @@ export default function InvestorsPage() {
     // Check if token exists
     if (typeof window !== 'undefined' && localStorage.getItem('token')) {
       setIsAuthenticated(true)
+      // Decode token to get user id
+      const token = localStorage.getItem('token')
+      try {
+        const decoded: any = jwtDecode(token!)
+        setUserId(decoded.id)
+        const userId = decoded.id
+        // Fetch portfolio stats
+        setStatsLoading(true)
+        fetch(`/api/users/${userId}/bets`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+          .then(res => res.json())
+          .then(data => {
+            setPortfolioStats(data.portfolio)
+            setStatsLoading(false)
+          })
+          .catch(() => setStatsLoading(false))
+      } catch {}
     }
   }, [])
 
-  // Auth function
+  // Auth function (auto-auth on wallet connect)
   const handleAuthenticate = async () => {
-    if (!isConnected) {
-      await connect()
-    }
-    if (!address) {
-      alert('Please connect your wallet first.')
-      return
-    }
+    if (!isConnected || !address) return
     setIsAuthenticating(true)
     try {
-      // In production, you should request a real signature from the wallet
       const signature = 'dummy-signature' // TODO: Replace with real signature logic
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -91,17 +101,17 @@ export default function InvestorsPage() {
         const data = await res.json()
         localStorage.setItem('token', data.token)
         setIsAuthenticated(true)
-        alert('Authenticated successfully!')
-      } else {
-        const err = await res.json()
-        alert('Authentication failed: ' + err.error)
       }
-    } catch (e) {
-      alert('Authentication error')
-    } finally {
-      setIsAuthenticating(false)
-    }
+    } catch {}
+    setIsAuthenticating(false)
   }
+
+  // Auto-authenticate on wallet connect or page load
+  useEffect(() => {
+    if (isConnected && address && !isAuthenticated && !localStorage.getItem('token')) {
+      handleAuthenticate()
+    }
+  }, [isConnected, address])
 
   const handlePlaceBet = async (projectId: string) => {
     if (!selectedProject) return
@@ -122,7 +132,8 @@ export default function InvestorsPage() {
 
       if (response.ok) {
         const result = await response.json()
-        // Update the project data with new pools
+        setSelectedProject(null) // Close modal after bet
+        setBetProjects((prev) => [...prev, projectId]) // Mark project as betted
         setSelectedProject((prev: any) => ({
           ...prev,
           supportPool: result.updatedPools.supportPool,
@@ -168,49 +179,75 @@ export default function InvestorsPage() {
                 <BarChart3 className="mr-2 h-4 w-4" />
                 Portfolio
               </Button>
-              <Button className="bg-gradient-to-r from-[#00F0FF] to-[#8B5CF6] hover:from-[#00F0FF]/80 hover:to-[#8B5CF6]/80">
-                <Wallet className="mr-2 h-4 w-4" />
-                Connect Wallet
-              </Button>
-              {/* Auth Button */}
-              {isAuthenticated ? (
-                <span className="text-green-400 font-semibold ml-2">Authenticated</span>
-              ) : (
-                <Button
-                  onClick={handleAuthenticate}
-                  disabled={isAuthenticating}
-                  className="ml-2 bg-green-600 hover:bg-green-700 text-white"
-                >
-                  {isAuthenticating ? 'Authenticating...' : 'Authenticate'}
-                </Button>
-              )}
+              {/* Only Portfolio button remains; wallet connect is in navbar */}
             </div>
           </div>
         </motion.div>
 
         {/* Portfolio Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {portfolioStats.map((stat, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <Card className="glass-card p-6 hover:neon-glow transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-400 text-sm mb-1">{stat.label}</p>
-                    <p className="text-2xl font-bold text-white">{stat.value}</p>
-                    <p className="text-green-400 text-sm">{stat.change}</p>
+          {statsLoading ? (
+            <div className="col-span-4 text-center text-gray-400 py-8">Loading portfolio stats...</div>
+          ) : portfolioStats ? (
+            <>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}>
+                <Card className="glass-card p-6 hover:neon-glow transition-all duration-300">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-gray-400 text-sm mb-1">Total Invested</p>
+                      <p className="text-2xl font-bold text-white">{portfolioStats.totalInvested} APT</p>
+                      <p className="text-green-400 text-sm">+{portfolioStats.totalInvested - (portfolioStats.totalPayouts || 0)}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-[#00F0FF]/20 rounded-lg flex items-center justify-center">
+                      <DollarSign className="h-6 w-6 text-[#00F0FF]" />
+                    </div>
                   </div>
-                  <div className="w-12 h-12 bg-[#00F0FF]/20 rounded-lg flex items-center justify-center">
-                    <stat.icon className="h-6 w-6 text-[#00F0FF]" />
+                </Card>
+              </motion.div>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+                <Card className="glass-card p-6 hover:neon-glow transition-all duration-300">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-gray-400 text-sm mb-1">Active Bets</p>
+                      <p className="text-2xl font-bold text-white">{portfolioStats.activeBets}</p>
+                      <p className="text-green-400 text-sm">+{portfolioStats.activeBets}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-[#00F0FF]/20 rounded-lg flex items-center justify-center">
+                      <Target className="h-6 w-6 text-[#00F0FF]" />
+                    </div>
                   </div>
-                </div>
-              </Card>
-            </motion.div>
-          ))}
+                </Card>
+              </motion.div>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                <Card className="glass-card p-6 hover:neon-glow transition-all duration-300">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-gray-400 text-sm mb-1">Success Rate</p>
+                      <p className="text-2xl font-bold text-white">{portfolioStats.successRate}%</p>
+                      <p className="text-green-400 text-sm">+{portfolioStats.successRate}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-[#00F0FF]/20 rounded-lg flex items-center justify-center">
+                      <TrendingUp className="h-6 w-6 text-[#00F0FF]" />
+                    </div>
+                  </div>
+                </Card>
+              </motion.div>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                <Card className="glass-card p-6 hover:neon-glow transition-all duration-300">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-gray-400 text-sm mb-1">Total Returns</p>
+                      <p className="text-2xl font-bold text-white">{portfolioStats.totalPayouts} APT</p>
+                      <p className="text-green-400 text-sm">+{portfolioStats.totalPayouts}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-[#00F0FF]/20 rounded-lg flex items-center justify-center">
+                      <Award className="h-6 w-6 text-[#00F0FF]" />
+                    </div>
+                  </div>
+                </Card>
+              </motion.div>
+            </>
+          ) : null}
         </div>
 
         {/* Filters and Search */}
@@ -361,13 +398,20 @@ export default function InvestorsPage() {
 
                       {/* Action Buttons */}
                       <div className="flex gap-2 pt-4 border-t border-white/10">
-                        <Button 
-                          size="sm" 
+                        {/* Check if user has already bet on this project */}
+                        {(() => {
+                          const hasUserBet = userId && project.bets && project.bets.some((b: any) => b.userId === userId)
+                          return <>
+                        <Button
+                          size="sm"
                           className="flex-1 bg-green-600 hover:bg-green-700"
                           onClick={() => {
-                            setSelectedProject(project)
-                            setBetType('SUPPORT')
+                            if (!hasUserBet) {
+                              setSelectedProject(project)
+                              setBetType('SUPPORT')
+                            }
                           }}
+                          disabled={hasUserBet}
                         >
                           <ThumbsUp className="mr-1 h-4 w-4" />
                           Support
@@ -377,13 +421,18 @@ export default function InvestorsPage() {
                           variant="outline"
                           className="flex-1 border-red-500 text-red-400 hover:bg-red-500/10 bg-transparent"
                           onClick={() => {
-                            setSelectedProject(project)
-                            setBetType('DOUBT')
+                            if (!hasUserBet) {
+                              setSelectedProject(project)
+                              setBetType('DOUBT')
+                            }
                           }}
+                          disabled={hasUserBet}
                         >
                           <ThumbsDown className="mr-1 h-4 w-4" />
                           Doubt
                         </Button>
+                          </>
+                        })()}
                       </div>
                     </div>
                   </Card>
@@ -428,7 +477,7 @@ export default function InvestorsPage() {
         </motion.div>
 
         {/* Betting Modal */}
-        {selectedProject && (
+        {selectedProject && userId && selectedProject.bets && !selectedProject.bets.some((b: any) => b.userId === userId) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -446,22 +495,6 @@ export default function InvestorsPage() {
               
               <div className="space-y-4">
                 {/* Bet Type Selection */}
-                <div className="flex gap-2">
-                  <Button
-                    className={`flex-1 ${betType === 'SUPPORT' ? 'bg-green-600' : 'bg-gray-700'}`}
-                    onClick={() => setBetType('SUPPORT')}
-                  >
-                    <ThumbsUp className="mr-2 h-4 w-4" />
-                    Support
-                  </Button>
-                  <Button
-                    className={`flex-1 ${betType === 'DOUBT' ? 'bg-red-600' : 'bg-gray-700'}`}
-                    onClick={() => setBetType('DOUBT')}
-                  >
-                    <ThumbsDown className="mr-2 h-4 w-4" />
-                    Doubt
-                  </Button>
-                </div>
 
                 {/* Bet Amount */}
                 <div className="space-y-2">

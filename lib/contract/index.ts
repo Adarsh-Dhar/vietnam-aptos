@@ -1,7 +1,7 @@
 // Transaction examples for nft_validation::main
 // Dummy addresses and values for demonstration
 
-import { AptosClient } from "aptos";
+import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
 
 const MODULES = {
   bet_types: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::bet_types",
@@ -41,9 +41,9 @@ function getAptosWallet() {
   throw new Error("Aptos wallet not found");
 }
 
-// Use the correct node URL for your network (devnet/mainnet)
-const NODE_URL = "https://fullnode.devnet.aptoslabs.com/v1";
-const client = new AptosClient(NODE_URL);
+// Use the new SDK for client operations
+const config = new AptosConfig({ network: Network.DEVNET });
+const aptos = new Aptos(config);
 
 // --- Contract Functions ---
 
@@ -58,7 +58,7 @@ export async function initializePlatform() {
     arguments: [ORACLE_ADDRESS],
   };
   const response = await wallet.signAndSubmitTransaction({ payload });
-  await client.waitForTransaction(response.hash);
+  await aptos.waitForTransaction({ transactionHash: response.hash });
   return response.hash;
 }
 
@@ -81,7 +81,7 @@ export async function createProject({ targetHolders, deadline, nftContract = "0x
     gas_unit_price: gas_unit_price.toString(),
   });
   console.log("response", response);
-  await client.waitForTransaction(response.hash);
+  await aptos.waitForTransaction({ transactionHash: response.hash });
   if (onResult) onResult(response.hash);
   return response.hash;
 }
@@ -96,7 +96,7 @@ export async function placeBet({ projectId, amount, betType, onResult }: { proje
     arguments: [projectId, amount, betType],
   };
   const response = await wallet.signAndSubmitTransaction({ payload });
-  await client.waitForTransaction(response.hash);
+  await aptos.waitForTransaction({ transactionHash: response.hash });
   if (onResult) onResult(response.hash);
   return response.hash;
 }
@@ -111,7 +111,7 @@ export async function resolveProject({ projectId, finalHolders, onResult }: { pr
     arguments: [projectId, finalHolders],
   };
   const response = await wallet.signAndSubmitTransaction({ payload });
-  await client.waitForTransaction(response.hash);
+  await aptos.waitForTransaction({ transactionHash: response.hash });
   if (onResult) onResult(response.hash);
   return response.hash;
 }
@@ -126,7 +126,7 @@ export async function claimPayout({ claimerAddress, projectId, onResult }: { cla
     arguments: [claimerAddress, projectId],
   };
   const response = await wallet.signAndSubmitTransaction({ payload });
-  await client.waitForTransaction(response.hash);
+  await aptos.waitForTransaction({ transactionHash: response.hash });
   if (onResult) onResult(response.hash);
   return response.hash;
 }
@@ -141,7 +141,7 @@ export async function updateOracle({ newOracle, onResult }: { newOracle: string,
     arguments: [newOracle],
   };
   const response = await wallet.signAndSubmitTransaction({ payload });
-  await client.waitForTransaction(response.hash);
+  await aptos.waitForTransaction({ transactionHash: response.hash });
   if (onResult) onResult(response.hash);
   return response.hash;
 }
@@ -156,7 +156,7 @@ export async function updateFees({ listingFee, platformFeeBps, onResult }: { lis
     arguments: [listingFee, platformFeeBps],
   };
   const response = await wallet.signAndSubmitTransaction({ payload });
-  await client.waitForTransaction(response.hash);
+  await aptos.waitForTransaction({ transactionHash: response.hash });
   if (onResult) onResult(response.hash);
   return response.hash;
 }
@@ -171,7 +171,7 @@ export async function withdrawFees({ amount, onResult }: { amount: number, onRes
     arguments: [amount],
   };
   const response = await wallet.signAndSubmitTransaction({ payload });
-  await client.waitForTransaction(response.hash);
+  await aptos.waitForTransaction({ transactionHash: response.hash });
   if (onResult) onResult(response.hash);
   return response.hash;
 }
