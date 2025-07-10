@@ -48,7 +48,7 @@
     "date-fns": "4.1.0",
     "dotenv": "^17.2.0",
     "embla-carousel-react": "8.5.1",
-    "framer-motion": "latest",
+    "framer-motion": "^10.16.4",
     "got": "^14.4.7",
     "input-otp": "1.4.1",
     "jsonwebtoken": "^9.0.2",

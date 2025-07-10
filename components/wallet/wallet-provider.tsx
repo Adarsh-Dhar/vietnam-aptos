@@ -60,16 +60,27 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const wallet = getAptosWallet()
     if (!wallet) return
     try {
+      console.log("Attempting to connect wallet...");
       await wallet.connect()
+      console.log("Wallet connected successfully");
+      
       const account = await wallet.account()
+      console.log("Wallet account:", account);
+      
+      if (!account || !account.address) {
+        throw new Error("Failed to get wallet account");
+      }
+      
       setIsConnected(true)
       setAddress(account.address)
       await fetchBalance(account.address, network)
+      console.log("Wallet connection complete");
     } catch (error) {
       console.error("Connection error:", error)
       setIsConnected(false)
       setAddress(null)
       setBalance(0)
+      throw error;
     }
   }
 
