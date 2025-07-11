@@ -83,7 +83,7 @@ export default function MintNFTPage() {
         type_arguments: [],
         arguments: [
           description,
-          "18446744073709551615",
+          "18446744073709551614",
           collectionName,
           uri,
           true,
@@ -205,8 +205,8 @@ export default function MintNFTPage() {
       // 1. Create collection
       setProgress(30);
       setMintStep("Creating collection...");
-      const collectionName = "Example Collection";
-      const collectionDescription = "This is an example collection.";
+      const collectionName = "ExampleCollection";
+      const collectionDescription = "This is an example collection";
       const collectionUri = "aptos.dev";
       
       const collectionResult = await createCollection(collectionName, collectionDescription, collectionUri);
