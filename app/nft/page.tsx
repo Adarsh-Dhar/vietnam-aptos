@@ -10,9 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useWallet } from "@/components/wallet/wallet-provider";
-import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
+import { Aptos, AptosConfig, Network, Account, NetworkToNetworkName } from "@aptos-labs/ts-sdk";
 import { Upload, X, Image as ImageIcon, Zap, Coins, CheckCircle, AlertCircle } from "lucide-react";
-import { NFTStorage } from 'nft.storage';
 import { toast } from "sonner";
 
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=400&h=400&fit=crop";
@@ -37,120 +36,128 @@ export default function MintNFTPage() {
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const NFT_STORAGE_KEY = process.env.NEXT_PUBLIC_NFT_STORAGE_KEY || '';
-
-  // Setup Aptos SDK
-  const APTOS_NETWORK = network === "mainnet" ? Network.MAINNET : Network.DEVNET;
+  // Setup Aptos SDK - following the proper pattern
+  const APTOS_NETWORK = NetworkToNetworkName[process.env.NEXT_PUBLIC_APTOS_NETWORK || 'devnet'] || Network.DEVNET;
   const config = new AptosConfig({ network: APTOS_NETWORK });
   const aptos = new Aptos(config);
 
-  // Verify wallet network
-  const verifyWalletNetwork = async () => {
-    const wallet = window.aptos;
-    if (!wallet) return false;
-    
-    try {
-      const account = await wallet.account();
-      console.log("Current wallet network:", account.address);
-      // For now, we'll assume devnet for testing
-      return true;
-    } catch (err) {
-      console.error("Network verification failed:", err);
-      return false;
+  // Get wallet signer from connected wallet
+  const getWalletSigner = async () => {
+    if (!isConnected) {
+      throw new Error("Please connect your wallet first");
     }
+
+    const wallet = window.aptos;
+    if (!wallet) {
+      throw new Error("Aptos wallet not found. Please install Petra wallet.");
+    }
+
+    // Ensure wallet is connected
+    const isWalletConnected = await wallet.isConnected();
+    if (!isWalletConnected) {
+      await wallet.connect();
+    }
+
+    // Get account info
+    const account = await wallet.account();
+    if (!account || !account.address) {
+      throw new Error("Wallet not properly connected");
+    }
+
+    return { accountAddress: account.address, wallet };
   };
 
-  // Check if wallet is properly initialized
-  const checkWalletInitialization = async () => {
-    if (typeof window === "undefined") return false;
-    
-    // Wait for wallet to be available
-    let attempts = 0;
-    while (!window.aptos && attempts < 10) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      attempts++;
-    }
-    
-    if (!window.aptos) {
-      console.error("Petra wallet not found after waiting");
-      return false;
-    }
-    
+  // Create collection using Aptos SDK directly
+  const createCollection = async (collectionName: string, description: string, uri: string) => {
     try {
-      await window.aptos.isConnected();
-      return true;
-    } catch (err) {
-      console.error("Wallet initialization check failed:", err);
-      return false;
-    }
-  };
-
-  // Check wallet capabilities and network
-  const checkWalletCapabilities = async () => {
-    const wallet = window.aptos;
-    if (!wallet) return false;
-    
-    try {
-      console.log("Checking wallet capabilities...");
+      setMintStep("Creating collection...");
       
-      // Check if wallet is connected
-      const isConnected = await wallet.isConnected();
-      console.log("Wallet connected:", isConnected);
+      const { accountAddress, wallet } = await getWalletSigner();
       
-      if (!isConnected) {
-        console.log("Wallet not connected, attempting to connect...");
-        await wallet.connect();
-      }
+      console.log("Creating collection with wallet:", wallet);
       
-      // Get account info
-      const account = await wallet.account();
-      console.log("Wallet account:", account);
-      
-      // Check network
-      const network = await wallet.network();
-      console.log("Wallet network:", network);
-      
-      // Check if we can sign a simple message
-      try {
-        const testMessage = "Test message for wallet capabilities";
-        const signature = await wallet.signMessage({ message: testMessage });
-        console.log("Message signing test successful:", signature);
-      } catch (signError) {
-        console.log("Message signing test failed (this is okay):", signError);
-      }
-      
-      return true;
-    } catch (err) {
-      console.error("Wallet capabilities check failed:", err);
-      return false;
-    }
-  };
-
-  // Test wallet transaction signing
-  const testWalletSigning = async () => {
-    const wallet = window.aptos;
-    if (!wallet) return false;
-    
-    try {
-      const account = await wallet.account();
-      console.log("Testing wallet signing with account:", account.address);
-      
-      // Try a simple transaction to test signing
-      const testPayload = {
+      // Use the simple payload format that works with Petra wallet
+      const payload = {
         type: "entry_function_payload",
-        function: "0x1::coin::transfer",
-        type_arguments: ["0x1::aptos_coin::AptosCoin"],
-        arguments: [account.address, "0"],
+        function: "0x4::aptos_token::create_collection",
+        type_arguments: [],
+        arguments: [
+          description,
+          "18446744073709551615",
+          collectionName,
+          uri,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          "0",
+          "1"
+        ],
       };
+
+      const committedTransaction = await wallet.signAndSubmitTransaction(payload);
       
-      console.log("Testing with payload:", testPayload);
-      // This will open the wallet window but fail gracefully
-      await wallet.signAndSubmitTransaction({ payload: testPayload });
-      return true;
-    } catch (err) {
-      console.log("Test transaction failed (expected):", err);
-      // Even if it fails, we know the wallet is working
-      return true;
+      console.log("committedTransaction", committedTransaction);
+      
+      // Wait for the transaction to complete using existing aptos instance
+      const executedTransaction = await aptos.waitForTransaction({
+        transactionHash: committedTransaction.hash,
+      });
+      
+      console.log("executedTransaction", executedTransaction);
+      toast.success("Collection created successfully!");
+      return executedTransaction.hash;
+    } catch (error: any) {
+      console.error("Collection creation error:", error);
+      const errorMsg = error.message || "Collection creation failed";
+      
+      if (errorMsg.includes("COLLECTION_ALREADY_EXISTS")) {
+        console.log("Collection already exists, continuing...");
+        return "EXISTING_COLLECTION";
+      }
+      
+      throw new Error(errorMsg);
+    }
+  };
+
+  // Mint NFT using Aptos SDK directly
+  const mintNFT = async (collectionName: string, tokenName: string, description: string, uri: string) => {
+    try {
+      setMintStep("Minting NFT...");
+      
+      const { accountAddress, wallet } = await getWalletSigner();
+      
+      const payload = {
+        type: "entry_function_payload",
+        function: "0x4::aptos_token::mint",
+        type_arguments: [],
+        arguments: [
+          collectionName,
+          description,
+          tokenName,
+          uri,
+          [],
+          [],
+          []
+        ],
+      };
+
+      const committedTransaction = await wallet.signAndSubmitTransaction(payload);
+      
+      const executedTransaction = await aptos.waitForTransaction({
+        transactionHash: committedTransaction.hash,
+      });
+      
+      console.log("NFT minted successfully:", executedTransaction.hash);
+      return executedTransaction.hash;
+    } catch (error) {
+      console.error("NFT minting error:", error);
+      throw error;
     }
   };
 
@@ -179,53 +186,6 @@ export default function MintNFTPage() {
     }
   };
 
-  const uploadImageToIPFS = async (file: File): Promise<string> => {
-    if (!NFT_STORAGE_KEY) {
-      toast.warning("NFT.Storage API key not configured. Using placeholder image.");
-      return DEFAULT_IMAGE;
-    }
-    
-    try {
-      setMintStep("Uploading image to IPFS...");
-      const nftstorage = new NFTStorage({ token: NFT_STORAGE_KEY });
-      
-      // Upload image
-      const imageCID = await nftstorage.storeBlob(file);
-      const imageUrl = `https://ipfs.io/ipfs/${imageCID}`;
-      
-      setMintStep("Creating metadata...");
-      
-      // Create metadata JSON
-      const metadata = {
-        name,
-        description,
-        image: imageUrl,
-        attributes: [],
-        properties: {
-          files: [
-            {
-              type: file.type,
-              uri: imageUrl
-            }
-          ]
-        }
-      };
-      
-      // Upload metadata
-      const metadataBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
-      const metadataFile = new File([metadataBlob], 'metadata.json');
-      const metadataCID = await nftstorage.storeBlob(metadataFile);
-      
-      const metadataUrl = `https://ipfs.io/ipfs/${metadataCID}`;
-      toast.success("Image uploaded to IPFS successfully!");
-      return metadataUrl;
-    } catch (err) {
-      console.error('IPFS upload failed:', err);
-      toast.error("IPFS upload failed. Using placeholder image.");
-      return DEFAULT_IMAGE;
-    }
-  };
-
   const handleMint = async () => {
     if (!isConnected) {
       await connect();
@@ -242,175 +202,31 @@ export default function MintNFTPage() {
     setError("");
     
     try {
-      // Check wallet initialization
-      const walletInitialized = await checkWalletInitialization();
-      if (!walletInitialized) {
-        throw new Error("Petra wallet is not properly initialized. Please refresh the page and try again.");
-      }
-      
-      // Check wallet capabilities
-      const capabilitiesOk = await checkWalletCapabilities();
-      if (!capabilitiesOk) {
-        throw new Error("Wallet capabilities check failed. Please ensure Petra wallet is properly installed and connected.");
-      }
-      
-      // Test wallet signing capability
-      const signingWorks = await testWalletSigning();
-      if (!signingWorks) {
-        throw new Error("Wallet signing test failed. Please check your Petra wallet configuration.");
-      }
-      
-      // Verify wallet network
-      const networkOk = await verifyWalletNetwork();
-      if (!networkOk) {
-        throw new Error("Please ensure your wallet is connected to the correct network");
-      }
-      
-      // 1. Upload to IPFS
-      setProgress(20);
-      const uri = await uploadImageToIPFS(image);
-      setProgress(40);
-      
-      // 2. Get wallet and verify connection
-      const wallet = window.aptos;
-      if (!wallet) {
-        throw new Error("Aptos wallet not found. Please install Petra wallet.");
-      }
-      
-      // Verify wallet is connected
-      try {
-        const account = await wallet.account();
-        console.log("Wallet account:", account);
-        if (!account || !account.address) {
-          throw new Error("Wallet not properly connected");
-        }
-      } catch (err) {
-        console.error("Wallet connection error:", err);
-        throw new Error("Please connect your wallet first");
-      }
-      
-      const account = await wallet.account();
-      
-      // 3. Create collection (if needed)
-      setProgress(50);
+      // 1. Create collection
+      setProgress(30);
       setMintStep("Creating collection...");
-      const collectionName = "Aptos NFT Collection";
+      const collectionName = "Example Collection";
+      const collectionDescription = "This is an example collection.";
+      const collectionUri = "aptos.dev";
       
-      try {
-        const createPayload = {
-          type: "entry_function_payload",
-          function: "0x4::aptos_token::create_collection",
-          type_arguments: [],
-          arguments: [
-            String(collectionName), // name (string)
-            String("A collection for Aptos NFTs"), // description (string)
-            String("https://collection.example.com"), // uri (string)
-            "0", // maximum (stringified number)
-            [true, true, true] // mutability config (vector<bool>)
-          ],
-        };
-        
-        console.log("Creating collection with payload:", createPayload);
-        const createResponse = await wallet.signAndSubmitTransaction({ payload: createPayload });
-        console.log("Collection creation response:", createResponse);
-        toast.success("Collection created successfully!");
-      } catch (err: any) {
-        console.error("Collection creation error:", err);
-        if (!err.message?.includes("COLLECTION_ALREADY_EXISTS")) {
-          console.log("Collection creation failed, but continuing...");
-        }
-        // Collection already exists, continue
-      }
-      setProgress(70);
+      const collectionResult = await createCollection(collectionName, collectionDescription, collectionUri);
+      setProgress(60);
       
-      // 4. Mint NFT
-      setMintStep("Minting NFT...");
-      const mintPayload = {
-        type: "entry_function_payload",
-        function: "0x4::aptos_token::mint",
-        type_arguments: [],
-        arguments: [
-          String(account.address),
-          String(collectionName),
-          String(name),
-          [String(description || "")], // description as vector<string>
-          String(uri),
-          "0", // max supply
-          String(account.address), // royalty payee
-          "0", // numerator
-          "0", // denominator
-          ["true", "true", "true"], // mutability config as strings for max compatibility
-          [], // property keys
-          [], // property values
-          []  // property types
-        ],
-      };
+      // 2. Mint NFT
+      setProgress(80);
+      const tokenUri = "https://example.com/nft-metadata.json";
+      const mintHash = await mintNFT(collectionName, name, description || "", tokenUri);
+      setProgress(90);
       
-      console.log("Minting NFT with payload:", mintPayload);
+      setMintStep("Confirming transaction...");
+      setProgress(100);
       
-      try {
-        const response = await wallet.signAndSubmitTransaction({ payload: mintPayload });
-        console.log("Mint transaction response:", response);
-        setProgress(90);
-        setMintStep("Confirming transaction...");
-        
-        await aptos.waitForTransaction({ transactionHash: response.hash });
-        setProgress(100);
-        
-        toast.success(`NFT Minted Successfully! Transaction: ${response.hash}`);
-        
-        // Reset form
-        setName("");
-        setDescription("");
-        removeImage();
-        
-      } catch (mintError: any) {
-        console.error("Mint transaction failed:", mintError);
-        
-        // Try alternative payload format with booleans if stringified fails
-        try {
-          console.log("Trying alternative payload format with booleans...");
-          const alternativePayload = {
-            type: "entry_function_payload",
-            function: "0x4::aptos_token::mint",
-            type_arguments: [],
-            arguments: [
-              String(account.address),
-              String(collectionName),
-              String(name),
-              [String(description || "")], // description as vector<string>
-              String(uri),
-              "0",
-              String(account.address),
-              "0",
-              "0",
-              [true, true, true],
-              [],
-              [],
-              []
-            ],
-          };
-          
-          const response = await wallet.signAndSubmitTransaction({ payload: alternativePayload });
-          console.log("Alternative mint transaction response:", response);
-          setProgress(90);
-          setMintStep("Confirming transaction...");
-          
-          await aptos.waitForTransaction({ transactionHash: response.hash });
-          setProgress(100);
-          
-          toast.success(`NFT Minted Successfully! Transaction: ${response.hash}`);
-          
-          // Reset form
-          setName("");
-          setDescription("");
-          removeImage();
-          
-        } catch (alternativeError: any) {
-          console.error("Alternative mint also failed:", alternativeError);
-          throw new Error(`Minting failed: ${mintError.message || "Unknown error"}`);
-        }
-      }
+      toast.success(`NFT Minted Successfully! Transaction: ${mintHash}`);
+      
+      // Reset form
+      setName("");
+      setDescription("");
+      removeImage();
       
     } catch (err: any) {
       console.error('Minting failed:', err);
@@ -433,7 +249,7 @@ export default function MintNFTPage() {
           className="mb-8 text-center"
         >
           <h1 className="text-4xl font-bold text-white mb-2">Mint Your NFT</h1>
-          <p className="text-gray-400">Create and mint unique NFTs on the Aptos blockchain</p>
+          <p className="text-gray-400">Create and mint unique NFTs using Aptos SDK with your connected wallet</p>
         </motion.div>
 
         <motion.div 
@@ -539,7 +355,7 @@ export default function MintNFTPage() {
             {/* Mint Button */}
             <Button
               onClick={handleMint}
-              disabled={minting || (!isConnected && !address)}
+              disabled={minting || !isConnected}
               className="w-full bg-gradient-to-r from-[#00F0FF] to-[#8B5CF6] hover:from-[#00F0FF]/80 hover:to-[#8B5CF6]/80 text-white font-bold py-4 text-lg disabled:opacity-50"
             >
               {minting ? (
@@ -566,9 +382,9 @@ export default function MintNFTPage() {
               <div className="text-gray-400 text-xs space-y-1">
                 <p>• Make sure Petra wallet is installed and connected</p>
                 <p>• Switch to Devnet in your wallet for testing</p>
-                <p>• If the wallet window is blank, try refreshing the page</p>
-                <p>• Check browser console for detailed error messages</p>
+                <p>• Collections are created automatically for organization</p>
                 <p>• Ensure you have enough APT for gas fees (~0.1 APT)</p>
+                <p>• Check browser console for detailed transaction logs</p>
               </div>
               
               {/* Debug Button */}
@@ -616,8 +432,8 @@ export default function MintNFTPage() {
                 <div className="w-12 h-12 bg-[#00F0FF]/20 rounded-full flex items-center justify-center mx-auto mb-2">
                   <ImageIcon className="h-6 w-6 text-[#00F0FF]" />
                 </div>
-                <h3 className="text-white font-medium text-sm">IPFS Storage</h3>
-                <p className="text-gray-400 text-xs">Images stored on decentralized IPFS</p>
+                <h3 className="text-white font-medium text-sm">Simple Metadata</h3>
+                <p className="text-gray-400 text-xs">Basic NFT metadata with example URIs</p>
               </div>
               
               <div className="text-center p-4 bg-white/5 rounded-lg">
