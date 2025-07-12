@@ -30,6 +30,8 @@ export default function MintNFTPage() {
   const [imageUrl, setImageUrl] = useState<string>("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [collectionName, setCollectionName] = useState("");
+  const [collectionDescription, setCollectionDescription] = useState("");
   const [minting, setMinting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [mintStep, setMintStep] = useState("");
@@ -192,8 +194,8 @@ export default function MintNFTPage() {
       return;
     }
     
-    if (!image || !name.trim()) {
-      toast.error("Please upload an image and enter a name");
+    if (!image || !name.trim() || !collectionName.trim() || !collectionDescription.trim()) {
+      toast.error("Please upload an image and fill in all required fields (Collection Name, Collection Description, and NFT Name)");
       return;
     }
     
@@ -205,8 +207,6 @@ export default function MintNFTPage() {
       // 1. Create collection
       setProgress(30);
       setMintStep("Creating collection...");
-      const collectionName = "ExampleCollection";
-      const collectionDescription = "This is an example collection";
       const collectionUri = "aptos.dev";
       
       const collectionResult = await createCollection(collectionName, collectionDescription, collectionUri);
@@ -226,6 +226,8 @@ export default function MintNFTPage() {
       // Reset form
       setName("");
       setDescription("");
+      setCollectionName("");
+      setCollectionDescription("");
       removeImage();
       
     } catch (err: any) {
@@ -305,6 +307,29 @@ export default function MintNFTPage() {
             {/* NFT Details */}
             <div className="space-y-6 mb-8">
               <div>
+                <Label className="text-white text-sm font-medium mb-2 block">Collection Name *</Label>
+                <Input 
+                  value={collectionName} 
+                  onChange={e => setCollectionName(e.target.value)} 
+                  placeholder="My Awesome Collection" 
+                  disabled={minting}
+                  className="bg-white/5 border-white/20 text-white placeholder:text-gray-400"
+                />
+              </div>
+              
+              <div>
+                <Label className="text-white text-sm font-medium mb-2 block">Collection Description *</Label>
+                <Textarea 
+                  value={collectionDescription} 
+                  onChange={e => setCollectionDescription(e.target.value)} 
+                  placeholder="Describe your collection..." 
+                  disabled={minting} 
+                  rows={2}
+                  className="bg-white/5 border-white/20 text-white placeholder:text-gray-400"
+                />
+              </div>
+              
+              <div>
                 <Label className="text-white text-sm font-medium mb-2 block">NFT Name *</Label>
                 <Input 
                   value={name} 
@@ -316,7 +341,7 @@ export default function MintNFTPage() {
               </div>
               
               <div>
-                <Label className="text-white text-sm font-medium mb-2 block">Description</Label>
+                <Label className="text-white text-sm font-medium mb-2 block">NFT Description</Label>
                 <Textarea 
                   value={description} 
                   onChange={e => setDescription(e.target.value)} 
