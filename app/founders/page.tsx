@@ -17,6 +17,8 @@ import {
   Eye,
   Edit,
   Trash2,
+  Image as ImageIcon,
+  Check,
 } from "lucide-react"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Form, FormItem, FormLabel, FormControl, FormMessage, FormField } from "@/components/ui/form"
@@ -34,9 +36,31 @@ function generateRandomHex64() {
   return "0x" + hex;
 }
 
+interface NFT {
+  id: string;
+  collectionName: string;
+  collectionDescription: string;
+  tokenName: string;
+  tokenDescription: string | null;
+  imageUrl: string | null;
+  collectionTxHash: string | null;
+  mintTxHash: string | null;
+  status: string;
+  createdAt: string;
+  creator: {
+    id: string;
+    aptosAddress: string;
+    username: string | null;
+  };
+}
+
 export default function FoundersPage() {
   const [open, setOpen] = useState(false)
   const [projects, setProjects] = useState<any[]>([])
+  const [nfts, setNfts] = useState<NFT[]>([])
+  const [nftsLoading, setNftsLoading] = useState(false)
+  const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null)
+  const [nftSelectionOpen, setNftSelectionOpen] = useState(false)
   const form = useForm({
     defaultValues: {
       name: "",
@@ -47,6 +71,7 @@ export default function FoundersPage() {
       targetHolders: "1000",
       deadline: new Date(Date.now() + 86400 * 10 * 1000), // 10 days from now
       categories: ["Health Tech"],
+      selectedNFTId: "",
     },
   })
   const [loading, setLoading] = useState(false)
@@ -59,6 +84,35 @@ export default function FoundersPage() {
   const [projectsLoading, setProjectsLoading] = useState(true)
   const [stats, setStats] = useState<any[]>([])
   const [statsLoading, setStatsLoading] = useState(true)
+
+  // Fetch user's NFTs
+  const fetchNFTs = async () => {
+    try {
+      setNftsLoading(true);
+      const jwt = typeof window !== "undefined" ? localStorage.getItem("jwt") : null;
+      const res = await fetch("/api/nft/save", {
+        headers: {
+          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {})
+        }
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        // Filter only MINTED NFTs
+        const mintedNFTs = data.nfts.filter((nft: NFT) => nft.status === "MINTED");
+        setNfts(mintedNFTs);
+      } else if (res.status === 401) {
+        console.log("User not authenticated");
+        setNfts([]);
+      } else {
+        console.error("Failed to fetch NFTs:", res.status);
+      }
+    } catch (error) {
+      console.error("Error fetching NFTs:", error);
+    } finally {
+      setNftsLoading(false);
+    }
+  };
 
   // Fetch projects from API
   const fetchProjects = async () => {
@@ -113,10 +167,11 @@ export default function FoundersPage() {
     }
   };
 
-  // Load projects and stats on component mount
+  // Load projects, stats, and NFTs on component mount
   useEffect(() => {
     fetchProjects();
     fetchStats();
+    fetchNFTs();
   }, []);
 
   const handleCreateProject = async (data: any) => {
@@ -127,48 +182,36 @@ export default function FoundersPage() {
       // Ensure all required fields are present and valid
       const targetHolders = data.targetHolders ? parseInt(data.targetHolders, 10) : undefined;
       const deadline = data.deadline ? Math.floor(data.deadline.getTime() / 1000) : undefined; // Convert to Unix timestamp
-      if (!data.name || !data.description || !targetHolders || !deadline || !data.aptosContract) {
+      if (!data.name || !data.description || !targetHolders || !deadline) {
         setError("All fields are required.");
         setLoading(false);
         return;
       }
-      // Normalize categories to array of strings
-      const categories = Array.isArray(data.categories)
-        ? data.categories.map((cat: any) => typeof cat === "string" ? cat : cat?.name)
-        : [];
-      // Validate and pad hex string for contract address
-      function isValidHex(str: string) {
-        return /^0x[0-9a-fA-F]+$/.test(str);
-      }
-      function padHexAddress(str: string) {
-        if (!str.startsWith("0x")) return str;
-        const hex = str.slice(2);
-        if (hex.length > 64) return null; // too long
-        return "0x" + hex.padStart(64, "0");
-      }
-      if (!isValidHex(data.aptosContract)) {
-        setError("Aptos Contract Address must be a valid hex string (e.g., 0x1234...)");
-        setLoading(false);
-        return;
-      }
-      const paddedContract = padHexAddress(data.aptosContract);
-      if (!paddedContract) {
-        setError("Aptos Contract Address is too long (max 64 hex chars after 0x)");
-        setLoading(false);
-        return;
-      }
-      const nftContract = paddedContract;
-      // Encode metadataUri as Uint8Array for contract call
-      let metadataUri = typeof window !== "undefined" && window.TextEncoder
-        ? new window.TextEncoder().encode(data.coverImage)
-        : new TextEncoder().encode(data.coverImage);
-      console.log("metadataUri for contract:", metadataUri, Array.isArray(metadataUri), metadataUri instanceof Uint8Array);
-      if (typeof data.coverImage !== "string" || !data.coverImage.startsWith("http")) {
-        setError("Cover Image URL must be a valid URL string (starting with http...)");
+
+      // Validate NFT selection
+      if (!selectedNFT) {
+        setError("Please select an NFT for your project.");
         setLoading(false);
         return;
       }
 
+      // Use selected NFT data
+      const nftContract = generateRandomHex64(); // Generate unique contract address for each project
+      const coverImage = selectedNFT.imageUrl && selectedNFT.imageUrl.startsWith("http") 
+        ? selectedNFT.imageUrl 
+        : "https://images.unsplash.com/photo-1506744038136-46273834b3fb";
+      
+      // Normalize categories to array of strings
+      const categories = Array.isArray(data.categories)
+        ? data.categories.map((cat: any) => typeof cat === "string" ? cat : cat?.name)
+        : [];
+      
+      // Encode metadataUri as Uint8Array for contract call
+      let metadataUri = typeof window !== "undefined" && window.TextEncoder
+        ? new window.TextEncoder().encode(coverImage)
+        : new TextEncoder().encode(coverImage);
+      console.log("metadataUri for contract:", metadataUri, Array.isArray(metadataUri), metadataUri instanceof Uint8Array);
+      
       if (!targetHolders || !deadline || !nftContract || !metadataUri) {
         setError("Missing required fields for contract call");
         setLoading(false);
@@ -181,8 +224,8 @@ export default function FoundersPage() {
 
       // Log initialization status of Platform resource
       try {
-        const moduleAddress = "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b"; // Module address
-        const adminAddress = "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b"; // Admin address (profile address)
+        const moduleAddress = "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7"; // Module address
+        const adminAddress = "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7"; // Admin address (profile address)
         const resourceType = `${moduleAddress}::main::Platform`;
         const nodeUrl = "https://fullnode.devnet.aptoslabs.com/v1";
         const res = await fetch(`${nodeUrl}/accounts/${adminAddress}/resource/${encodeURIComponent(resourceType)}`);
@@ -212,9 +255,8 @@ export default function FoundersPage() {
       setLoadingStep("Waiting for transaction confirmation...")
       console.log("Waiting for transaction confirmation...");
       
-      // The createProjectOnChain function already waits for confirmation, but let's add additional verification
+      // Verify transaction was successful by checking if it exists on chain
       try {
-        // Verify transaction was successful by checking if it exists on chain
         const nodeUrl = "https://fullnode.devnet.aptoslabs.com/v1";
         const txResponse = await fetch(`${nodeUrl}/transactions/by_hash/${txHash}`);
         
@@ -252,6 +294,9 @@ export default function FoundersPage() {
           deadline: data.deadline ? data.deadline.toISOString() : undefined,
           categories,
           contractTxHash: txHash, // Store the confirmed transaction hash
+          selectedNFTId: selectedNFT.id, // Store the selected NFT ID
+          aptosContract: nftContract,
+          coverImage: coverImage,
         }),
       });
 
@@ -275,6 +320,7 @@ export default function FoundersPage() {
       setProjects([newProject, ...projects]);
       setOpen(false);
       form.reset();
+      setSelectedNFT(null);
       
       console.log("Project created successfully:", newProject);
       
@@ -471,7 +517,11 @@ export default function FoundersPage() {
     <div className="min-h-screen bg-[#0A0F2B] particle-bg">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }} 
+          animate={{ opacity: 1, y: 0 }} 
+          transition={{ duration: 0.5 }}
+        >
           <div className="flex justify-between items-center mb-6">
             <div>
               <h1 className="text-4xl font-bold text-white mb-2">Founder Dashboard</h1>
@@ -487,6 +537,7 @@ export default function FoundersPage() {
                   categories: Array.isArray(current.categories)
                     ? current.categories.map((cat: any) => typeof cat === "string" ? cat : cat?.name)
                     : ["Health Tech"],
+                  selectedNFTId: "", // Clear selected NFT when opening dialog
                 });
               }
             }}>
@@ -523,24 +574,60 @@ export default function FoundersPage() {
                         <FormMessage />
                       </FormItem>
                     )} />
-                    <FormField name="aptosContract" control={form.control} render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Aptos Contract Address</FormLabel>
-                        <FormControl>
-                          <Input placeholder="0x..." {...field} required />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <FormField name="coverImage" control={form.control} render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Cover Image URL</FormLabel>
-                        <FormControl>
-                          <Input placeholder="https://..." {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                    
+                    {/* NFT Selection */}
+                    <FormItem>
+                      <FormLabel>Select Your NFT</FormLabel>
+                      <div className="space-y-3">
+                        {selectedNFT ? (
+                          <div className="border border-[#00F0FF]/30 rounded-lg p-4 bg-[#00F0FF]/5">
+                            <div className="flex items-center gap-3">
+                              {selectedNFT.imageUrl ? (
+                                <img 
+                                  src={selectedNFT.imageUrl} 
+                                  alt={selectedNFT.tokenName}
+                                  className="w-16 h-16 rounded-lg object-cover"
+                                />
+                              ) : (
+                                <div className="w-16 h-16 rounded-lg bg-gray-600 flex items-center justify-center">
+                                  <ImageIcon className="h-8 w-8 text-gray-400" />
+                                </div>
+                              )}
+                              <div className="flex-1">
+                                <h4 className="text-white font-medium">{selectedNFT.tokenName}</h4>
+                                <p className="text-gray-400 text-sm">{selectedNFT.collectionName}</p>
+                                <p className="text-gray-500 text-xs">Minted: {new Date(selectedNFT.createdAt).toLocaleDateString()}</p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedNFT(null)}
+                                className="text-red-400 hover:text-red-300"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="border-2 border-dashed border-[#00F0FF]/30 rounded-lg p-6 text-center">
+                            <ImageIcon className="h-12 w-12 text-[#00F0FF] mx-auto mb-3" />
+                            <p className="text-white mb-2">Select an NFT for your project</p>
+                            <p className="text-gray-400 text-sm mb-4">Choose from your minted NFTs to represent this project</p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setNftSelectionOpen(true)}
+                              className="border-[#00F0FF]/50 text-[#00F0FF] hover:bg-[#00F0FF]/10"
+                            >
+                              <ImageIcon className="mr-2 h-4 w-4" />
+                              Select NFT
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </FormItem>
+                    
                     <FormField name="listingFee" control={form.control} render={({ field }) => (
                       <FormItem>
                         <FormLabel>Listing Fee (APT)</FormLabel>
@@ -657,11 +744,10 @@ export default function FoundersPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="mb-8"
         >
-          <h2 className="text-2xl font-bold text-white mb-6">Your Projects</h2>
+            <h2 className="text-2xl font-bold text-white mb-6">Your Projects</h2>
 
-          {projectsLoading ? (
+            {projectsLoading ? (
             <div className="text-center py-10">
               <p className="text-gray-500">Loading your projects...</p>
             </div>
@@ -949,6 +1035,88 @@ export default function FoundersPage() {
                 </DialogFooter>
               </form>
             </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* NFT Selection Dialog */}
+        <Dialog open={nftSelectionOpen} onOpenChange={setNftSelectionOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Select Your NFT</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {nftsLoading ? (
+                <div className="text-center py-10">
+                  <p className="text-gray-500">Loading your NFTs...</p>
+                </div>
+              ) : nfts.length === 0 ? (
+                <div className="text-center py-10">
+                  <ImageIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-white mb-2">No NFTs Found</h3>
+                  <p className="text-gray-400 mb-4">You don't have any minted NFTs yet.</p>
+                  <Button
+                    onClick={() => {
+                      setNftSelectionOpen(false);
+                      window.open('/nft', '_blank');
+                    }}
+                    className="bg-gradient-to-r from-[#00F0FF] to-[#8B5CF6]"
+                  >
+                    Mint Your First NFT
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {nfts.map((nft) => (
+                    <Card
+                      key={nft.id}
+                      className={`cursor-pointer transition-all duration-200 hover:scale-105 ${
+                        selectedNFT?.id === nft.id
+                          ? 'ring-2 ring-[#00F0FF] bg-[#00F0FF]/10'
+                          : 'hover:bg-white/5'
+                      }`}
+                      onClick={() => {
+                        setSelectedNFT(nft);
+                        setNftSelectionOpen(false);
+                      }}
+                    >
+                      <div className="p-4">
+                        <div className="aspect-square mb-3 rounded-lg overflow-hidden bg-gray-800">
+                          {nft.imageUrl ? (
+                            <img
+                              src={nft.imageUrl}
+                              alt={nft.tokenName}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <ImageIcon className="h-12 w-12 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-white truncate">{nft.tokenName}</h4>
+                          <p className="text-sm text-gray-400 truncate">{nft.collectionName}</p>
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span>{new Date(nft.createdAt).toLocaleDateString()}</span>
+                            {selectedNFT?.id === nft.id && (
+                              <Check className="h-4 w-4 text-[#00F0FF]" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setNftSelectionOpen(false)}
+              >
+                Cancel
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

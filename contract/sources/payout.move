@@ -1,6 +1,6 @@
 module nft_validation::payout {
     use nft_validation::project::{Self, Project};
-    use nft_validation::betting::{Self, Bet};
+    use nft_validation::betting;
 
     // Platform fee in basis points (100 = 1%)
     const PLATFORM_FEE_BPS: u64 = 100;
@@ -11,14 +11,12 @@ module nft_validation::payout {
             return 0
         };
 
-        let bet = project::get_bet(project, bettor);
-        if (betting::is_claimed(bet)) {
+        let (bet_amount, bet_type, is_claimed) = betting::get_bet_details(project, bettor);
+        if (is_claimed) {
             return 0
         };
 
-        let bet_amount = betting::get_bet_amount(bet);
-        let bet_type = betting::get_bet_type(bet);
-        let is_support = betting::is_support_bet(bet);
+        let is_support = bet_type == 1; // 1 = support, 2 = doubt
         let project_successful = project::is_successful(project);
 
         // No payout if bet was wrong
@@ -56,9 +54,8 @@ module nft_validation::payout {
             return 0
         };
 
-        let bet = project::get_bet(project, bettor);
-        let bet_amount = betting::get_bet_amount(bet);
-        let is_support = betting::is_support_bet(bet);
+        let (bet_amount, bet_type, _) = betting::get_bet_details(project, bettor);
+        let is_support = bet_type == 1; // 1 = support, 2 = doubt
 
         let support_pool = project::get_support_pool(project);
         let doubt_pool = project::get_doubt_pool(project);

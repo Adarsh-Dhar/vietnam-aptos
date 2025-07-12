@@ -4,13 +4,13 @@
 import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
 
 const MODULES = {
-  bet_types: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::bet_types",
-  project: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::project",
-  betting: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::betting",
-  security: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::security",
-  main: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::main",
-  nft_validator: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::nft_validator",
-  oracle: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::oracle",
+  bet_types: "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7::bet_types",
+  project: "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7::project",
+  betting: "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7::betting",
+  security: "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7::security",
+  main: "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7::main",
+  nft_validator: "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7::nft_validator",
+  oracle: "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7::oracle",
 };
 
 const MODULE = MODULES.main;
@@ -31,7 +31,7 @@ const NEW_ORACLE = "0x7";
 const LISTING_FEE = 1000000;
 const PLATFORM_FEE_BPS = 100;
 const WITHDRAW_AMOUNT = 500000;
-const ORACLE_ADDRESS = "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b";
+const ORACLE_ADDRESS = "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7";
 
 // Helper to get the connected wallet
 function getAptosWallet() {
@@ -64,26 +64,36 @@ export async function initializePlatform() {
 
 // 2. Create Project
 export async function createProject({ targetHolders, deadline, nftContract = "0x6", metadataUri, onResult, max_gas_amount = 50000, gas_unit_price = 100 }: { targetHolders: number, deadline: number, nftContract?: string, metadataUri: number[] | Uint8Array, onResult?: (hash: string) => void, max_gas_amount?: number, gas_unit_price?: number }) {
-  const wallet = getAptosWallet();
-  console.log("wallet", wallet);
-  const payload = {
-    type: "entry_function_payload",
-    function: `${MODULES.main}::create_project`,
-    type_arguments: [],
-    arguments: [targetHolders, deadline, nftContract, metadataUri],
-  };
-  console.log("payload", payload);
-  // Pass gas params as top-level fields for wallet compatibility
-  const response = await wallet.signAndSubmitTransaction({
-    payload,
-    max_gas_amount: max_gas_amount.toString(),
-    max_gas_units: max_gas_amount.toString(), // Added for compatibility
-    gas_unit_price: gas_unit_price.toString(),
-  });
-  console.log("response", response);
-  await aptos.waitForTransaction({ transactionHash: response.hash });
-  if (onResult) onResult(response.hash);
-  return response.hash;
+  try {
+    const wallet = getAptosWallet();
+    console.log("wallet", wallet);
+    
+    console.log("Creating project on blockchain...");
+    console.log("Parameters:", { targetHolders, deadline, nftContract, metadataUri });
+    
+    const payload = {
+      type: "entry_function_payload",
+      function: `${MODULES.main}::create_project`,
+      type_arguments: [],
+      arguments: [targetHolders, deadline, nftContract, metadataUri],
+    };
+    console.log("payload", payload);
+    
+    // Pass gas params as top-level fields for wallet compatibility
+    const response = await wallet.signAndSubmitTransaction({
+      payload,
+      max_gas_amount: max_gas_amount.toString(),
+      max_gas_units: max_gas_amount.toString(), // Added for compatibility
+      gas_unit_price: gas_unit_price.toString(),
+    });
+    console.log("response", response);
+    await aptos.waitForTransaction({ transactionHash: response.hash });
+    if (onResult) onResult(response.hash);
+    return response.hash;
+  } catch (error) {
+    console.error("Error in createProject:", error);
+    throw error;
+  }
 }
 
 // 3. Place Bet

@@ -46,7 +46,7 @@ model Project {
   id              String     @id @default(uuid())
   creator         User       @relation(fields: [creatorId], references: [id])
   creatorId       String
-  aptosContract   String     @unique
+  aptosContract   String     // Removed @unique constraint
   name            String
   description     String
   coverImage      String?
@@ -59,6 +59,8 @@ model Project {
   doubtPool       Float      @default(0)
   totalPool       Float      @default(0)
   platformFee     Float      @default(0.01)
+  selectedNFTId   String?    // ID of the selected NFT for this project
+  selectedNFT     NFT?       @relation(fields: [selectedNFTId], references: [id])
   bets            Bet[]
   validation      Validation?
   metrics         Metric[]
@@ -155,6 +157,9 @@ model NFT {
   status                NFTStatus @default(MINTING)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+
+  // Relations
+  projects Project[]     // Projects that use this NFT
 
   @@unique([collectionName, tokenName])
 }

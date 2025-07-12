@@ -40,6 +40,15 @@ export async function GET(request: NextRequest) {
           }
         },
         categories: true,
+        selectedNFT: {
+          select: {
+            id: true,
+            tokenName: true,
+            collectionName: true,
+            imageUrl: true,
+            mintTxHash: true
+          }
+        },
         _count: {
           select: { bets: true }
         },
@@ -98,7 +107,8 @@ export async function POST(request: NextRequest) {
       listingFee,
       targetHolders,
       deadline,
-      categories
+      categories,
+      selectedNFTId
     } = await request.json()
 
     // Validate required fields
@@ -120,6 +130,7 @@ export async function POST(request: NextRequest) {
         listingFee: listingFee || 10,
         targetHolders,
         deadline: new Date(deadline),
+        selectedNFTId: selectedNFTId || null,
         categories: {
           connectOrCreate: categories?.map((cat: string) => ({
             where: { name: cat },
@@ -136,7 +147,16 @@ export async function POST(request: NextRequest) {
             reputation: true
           }
         },
-        categories: true
+        categories: true,
+        selectedNFT: {
+          select: {
+            id: true,
+            tokenName: true,
+            collectionName: true,
+            imageUrl: true,
+            mintTxHash: true
+          }
+        }
       }
     })
 
