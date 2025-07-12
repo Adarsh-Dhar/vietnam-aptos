@@ -165,24 +165,26 @@ export default function InvestorsPage() {
     <div className="min-h-screen bg-[#0A0F2B] particle-bg">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-4xl font-bold text-white mb-2">Investor Hub</h1>
-              <p className="text-gray-400">Discover and validate promising startup ideas before they launch</p>
+        <div className="mb-8">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h1 className="text-4xl font-bold text-white mb-2">Investor Hub</h1>
+                <p className="text-gray-400">Discover and validate promising startup ideas before they launch</p>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="glass-card border-[#8B5CF6]/50 text-[#8B5CF6] hover:bg-[#8B5CF6]/10 bg-transparent"
+                >
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  Portfolio
+                </Button>
+                {/* Only Portfolio button remains; wallet connect is in navbar */}
+              </div>
             </div>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                className="glass-card border-[#8B5CF6]/50 text-[#8B5CF6] hover:bg-[#8B5CF6]/10 bg-transparent"
-              >
-                <BarChart3 className="mr-2 h-4 w-4" />
-                Portfolio
-              </Button>
-              {/* Only Portfolio button remains; wallet connect is in navbar */}
-            </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
 
         {/* Portfolio Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -251,196 +253,198 @@ export default function InvestorsPage() {
         </div>
 
         {/* Filters and Search */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="mb-8"
-        >
-          <Card className="glass-card p-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search projects..."
-                    className="pl-10 bg-white/5 border-white/20 text-white placeholder:text-gray-400"
-                  />
+        <div className="mb-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            <Card className="glass-card p-6">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search projects..."
+                      className="pl-10 bg-white/5 border-white/20 text-white placeholder:text-gray-400"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="glass-card border-white/20 text-white hover:bg-white/10 bg-transparent"
+                  >
+                    <Filter className="mr-2 h-4 w-4" />
+                    Category
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="glass-card border-white/20 text-white hover:bg-white/10 bg-transparent"
+                  >
+                    Risk Level
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="glass-card border-white/20 text-white hover:bg-white/10 bg-transparent"
+                  >
+                    Time Left
+                  </Button>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="glass-card border-white/20 text-white hover:bg-white/10 bg-transparent"
-                >
-                  <Filter className="mr-2 h-4 w-4" />
-                  Category
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="glass-card border-white/20 text-white hover:bg-white/10 bg-transparent"
-                >
-                  Risk Level
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="glass-card border-white/20 text-white hover:bg-white/10 bg-transparent"
-                >
-                  Time Left
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
+            </Card>
+          </motion.div>
+        </div>
 
         {/* Investment Opportunities */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="mb-8"
-        >
-          <h2 className="text-2xl font-bold text-white mb-6">Investment Opportunities</h2>
+        <div className="mb-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+          >
+            <h2 className="text-2xl font-bold text-white mb-6">Investment Opportunities</h2>
 
-          {loading ? (
-            <div className="text-center text-gray-400 py-12">Loading projects...</div>
-          ) : projects.length === 0 ? (
-            <div className="text-center text-gray-400 py-12">No projects found.</div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {projects.map((project, index) => (
-                <motion.div
-                  key={project.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  whileHover={{ y: -5 }}
-                >
-                  <Card className="glass-card p-6 h-full group hover:neon-glow transition-all duration-300">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-lg font-bold text-white">{project.name}</h3>
-                          <Badge
-                            variant="outline"
-                            className="border-gray-500/50 text-gray-400"
-                          >
-                            {/* No riskLevel in backend, so leave blank or placeholder */}
-                            Risk
+            {loading ? (
+              <div className="text-center text-gray-400 py-12">Loading projects...</div>
+            ) : projects.length === 0 ? (
+              <div className="text-center text-gray-400 py-12">No projects found.</div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                {projects.map((project, index) => (
+                  <motion.div
+                    key={project.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    whileHover={{ y: -5 }}
+                  >
+                    <Card className="glass-card p-6 h-full group hover:neon-glow transition-all duration-300">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="text-lg font-bold text-white">{project.name}</h3>
+                            <Badge
+                              variant="outline"
+                              className="border-gray-500/50 text-gray-400"
+                            >
+                              {/* No riskLevel in backend, so leave blank or placeholder */}
+                              Risk
+                            </Badge>
+                          </div>
+                          <p className="text-gray-400 text-sm mb-2">by {project.creator?.username || 'Unknown'}</p>
+                          <p className="text-gray-400 text-sm mb-3">{project.description}</p>
+                          <Badge variant="outline" className="border-[#00F0FF]/50 text-[#00F0FF]">
+                            {project.categories && project.categories.length > 0 ? project.categories[0].name : 'Uncategorized'}
                           </Badge>
                         </div>
-                        <p className="text-gray-400 text-sm mb-2">by {project.creator?.username || 'Unknown'}</p>
-                        <p className="text-gray-400 text-sm mb-3">{project.description}</p>
-                        <Badge variant="outline" className="border-[#00F0FF]/50 text-[#00F0FF]">
-                          {project.categories && project.categories.length > 0 ? project.categories[0].name : 'Uncategorized'}
-                        </Badge>
-                      </div>
 
-                      <Button size="sm" variant="ghost" className="text-gray-400 hover:text-white">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="space-y-4">
-                      {/* Progress */}
-                      <div>
-                        <div className="flex justify-between text-sm mb-2">
-                          <span className="text-gray-400">Target: {project.targetHolders || '-'}</span>
-                          <span className="text-white">{project.targetHolders && project.currentHolders ? Math.round((project.currentHolders / project.targetHolders) * 100) : 0}%</span>
-                        </div>
-                        <Progress value={project.targetHolders && project.currentHolders ? (project.currentHolders / project.targetHolders) * 100 : 0} className="h-2" />
-                      </div>
-
-                      {/* Betting Stats */}
-                      <div className="flex justify-between items-center">
-                        <div className="flex gap-4">
-                          <div className="flex items-center gap-1">
-                            <ThumbsUp className="h-4 w-4 text-green-400" />
-                            <span className="text-sm text-white">{project.bets?.filter((b: any) => b.type === 'SUPPORT').length || 0}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <ThumbsDown className="h-4 w-4 text-red-400" />
-                            <span className="text-sm text-white">{project.bets?.filter((b: any) => b.type === 'DOUBT').length || 0}</span>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm text-gray-400">Odds</p>
-                          <p className="text-sm font-bold text-[#00F0FF]">{project.totalPool && project.supportPool ? ((project.totalPool / (project.supportPool + 1)).toFixed(2)) : '1.00'}</p>
-                        </div>
-                      </div>
-
-                      {/* Key Metrics */}
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-gray-400">Time Left</p>
-                          <p className="text-white font-medium flex items-center">
-                            <Clock className="h-3 w-3 mr-1" />
-                            {/* Calculate days left from deadline */}
-                            {project.deadline ? `${Math.max(0, Math.ceil((new Date(project.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} days` : '-'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400">Total Staked</p>
-                          <p className="text-white font-medium">{project.totalPool ? `${project.totalPool} APT` : '0 APT'}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400">Potential Return</p>
-                          <p className="text-green-400 font-medium">-</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400">Validation Score</p>
-                          <p className="text-[#00F0FF] font-medium">-</p>
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex gap-2 pt-4 border-t border-white/10">
-                        {/* Check if user has already bet on this project */}
-                        {(() => {
-                          const hasUserBet = userId && project.bets && project.bets.some((b: any) => b.userId === userId)
-                          return <>
-                        <Button
-                          size="sm"
-                          className="flex-1 bg-green-600 hover:bg-green-700"
-                          onClick={() => {
-                            if (!hasUserBet) {
-                              setSelectedProject(project)
-                              setBetType('SUPPORT')
-                            }
-                          }}
-                          disabled={hasUserBet}
-                        >
-                          <ThumbsUp className="mr-1 h-4 w-4" />
-                          Support
+                        <Button size="sm" variant="ghost" className="text-gray-400 hover:text-white">
+                          <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 border-red-500 text-red-400 hover:bg-red-500/10 bg-transparent"
-                          onClick={() => {
-                            if (!hasUserBet) {
-                              setSelectedProject(project)
-                              setBetType('DOUBT')
-                            }
-                          }}
-                          disabled={hasUserBet}
-                        >
-                          <ThumbsDown className="mr-1 h-4 w-4" />
-                          Doubt
-                        </Button>
-                          </>
-                        })()}
                       </div>
-                    </div>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </motion.div>
+
+                      <div className="space-y-4">
+                        {/* Progress */}
+                        <div>
+                          <div className="flex justify-between text-sm mb-2">
+                            <span className="text-gray-400">Target: {project.targetHolders || '-'}</span>
+                            <span className="text-white">{project.targetHolders && project.currentHolders ? Math.round((project.currentHolders / project.targetHolders) * 100) : 0}%</span>
+                          </div>
+                          <Progress value={project.targetHolders && project.currentHolders ? (project.currentHolders / project.targetHolders) * 100 : 0} className="h-2" />
+                        </div>
+
+                        {/* Betting Stats */}
+                        <div className="flex justify-between items-center">
+                          <div className="flex gap-4">
+                            <div className="flex items-center gap-1">
+                              <ThumbsUp className="h-4 w-4 text-green-400" />
+                              <span className="text-sm text-white">{project.bets?.filter((b: any) => b.type === 'SUPPORT').length || 0}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <ThumbsDown className="h-4 w-4 text-red-400" />
+                              <span className="text-sm text-white">{project.bets?.filter((b: any) => b.type === 'DOUBT').length || 0}</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-gray-400">Odds</p>
+                            <p className="text-sm font-bold text-[#00F0FF]">{project.totalPool && project.supportPool ? ((project.totalPool / (project.supportPool + 1)).toFixed(2)) : '1.00'}</p>
+                          </div>
+                        </div>
+
+                        {/* Key Metrics */}
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-gray-400">Time Left</p>
+                            <p className="text-white font-medium flex items-center">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {/* Calculate days left from deadline */}
+                              {project.deadline ? `${Math.max(0, Math.ceil((new Date(project.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} days` : '-'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-400">Total Staked</p>
+                            <p className="text-white font-medium">{project.totalPool ? `${project.totalPool} APT` : '0 APT'}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-400">Potential Return</p>
+                            <p className="text-green-400 font-medium">-</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-400">Validation Score</p>
+                            <p className="text-[#00F0FF] font-medium">-</p>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 pt-4 border-t border-white/10">
+                          {/* Check if user has already bet on this project */}
+                          {(() => {
+                            const hasUserBet = userId && project.bets && project.bets.some((b: any) => b.userId === userId)
+                            return <>
+                          <Button
+                            size="sm"
+                            className="flex-1 bg-green-600 hover:bg-green-700"
+                            onClick={() => {
+                              if (!hasUserBet) {
+                                setSelectedProject(project)
+                                setBetType('SUPPORT')
+                              }
+                            }}
+                            disabled={hasUserBet}
+                          >
+                            <ThumbsUp className="mr-1 h-4 w-4" />
+                            Support
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 border-red-500 text-red-400 hover:bg-red-500/10 bg-transparent"
+                            onClick={() => {
+                              if (!hasUserBet) {
+                                setSelectedProject(project)
+                                setBetType('DOUBT')
+                              }
+                            }}
+                            disabled={hasUserBet}
+                          >
+                            <ThumbsDown className="mr-1 h-4 w-4" />
+                            Doubt
+                          </Button>
+                            </>
+                          })()}
+                        </div>
+                      </div>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        </div>
 
         {/* Market Insights */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}>
@@ -478,73 +482,71 @@ export default function InvestorsPage() {
 
         {/* Betting Modal */}
         {selectedProject && userId && selectedProject.bets && !selectedProject.bets.some((b: any) => b.userId === userId) && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-            onClick={() => setSelectedProject(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedProject(null)}>
+            <div 
               className="bg-[#0A0F2B] border border-white/20 rounded-lg p-6 w-full max-w-md mx-4"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
             >
-              <h3 className="text-xl font-bold text-white mb-4">Place Your Bet</h3>
-              <p className="text-gray-400 mb-4">{selectedProject.title}</p>
-              
-              <div className="space-y-4">
-                {/* Bet Type Selection */}
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+              >
+                <h3 className="text-xl font-bold text-white mb-4">Place Your Bet</h3>
+                <p className="text-gray-400 mb-4">{selectedProject.title}</p>
+                
+                <div className="space-y-4">
+                  {/* Bet Type Selection */}
 
-                {/* Bet Amount */}
-                <div className="space-y-2">
-                  <label className="text-sm text-gray-400">Bet Amount (APT)</label>
-                  <Slider
-                    value={betAmount}
-                    onValueChange={setBetAmount}
-                    max={100}
-                    min={1}
-                    step={1}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Amount: {betAmount[0]} APT</span>
-                    <span className="text-green-400">
-                      Potential Return: {calculatePotentialReturn(2.5, betAmount[0])} APT
-                    </span>
+                  {/* Bet Amount */}
+                  <div className="space-y-2">
+                    <label className="text-sm text-gray-400">Bet Amount (APT)</label>
+                    <Slider
+                      value={betAmount}
+                      onValueChange={setBetAmount}
+                      max={100}
+                      min={1}
+                      step={1}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Amount: {betAmount[0]} APT</span>
+                      <span className="text-green-400">
+                        Potential Return: {calculatePotentialReturn(2.5, betAmount[0])} APT
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-4">
+                    <Button
+                      className="flex-1 bg-gradient-to-r from-[#00F0FF] to-[#8B5CF6]"
+                      onClick={() => handlePlaceBet(selectedProject.id)}
+                      disabled={isPlacingBet}
+                    >
+                      {isPlacingBet ? (
+                        <>
+                          <Zap className="mr-2 h-4 w-4 animate-spin" />
+                          Placing Bet...
+                        </>
+                      ) : (
+                        <>
+                          <Coins className="mr-2 h-4 w-4" />
+                          Place Bet
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setSelectedProject(null)}
+                      className="border-white/20 text-white hover:bg-white/10"
+                    >
+                      Cancel
+                    </Button>
                   </div>
                 </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-2 pt-4">
-                  <Button
-                    className="flex-1 bg-gradient-to-r from-[#00F0FF] to-[#8B5CF6]"
-                    onClick={() => handlePlaceBet(selectedProject.id)}
-                    disabled={isPlacingBet}
-                  >
-                    {isPlacingBet ? (
-                      <>
-                        <Zap className="mr-2 h-4 w-4 animate-spin" />
-                        Placing Bet...
-                      </>
-                    ) : (
-                      <>
-                        <Coins className="mr-2 h-4 w-4" />
-                        Place Bet
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setSelectedProject(null)}
-                    className="border-white/20 text-white hover:bg-white/10"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
+              </motion.div>
+            </div>
+          </div>
         )}
       </div>
     </div>
