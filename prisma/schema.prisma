@@ -37,6 +37,7 @@ model User {
   createdProjects Project[]
   bets          Bet[]
   payouts       Payout[]
+  nfts          NFT[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -134,4 +135,33 @@ model PlatformStats {
   avgSuccessRate   Float   @default(0)
   totalPayouts     Float   @default(0)
   platformEarnings Float   @default(0)
+}
+
+model NFT {
+  id                    String   @id @default(uuid())
+  creator               User     @relation(fields: [creatorId], references: [id])
+  creatorId             String
+  collectionName        String
+  collectionDescription String
+  collectionUri         String
+  tokenName             String
+  tokenDescription      String?
+  tokenUri              String
+  imageUrl              String?
+  collectionTxHash      String?
+  mintTxHash            String?
+  aptosTokenId          String?  // Aptos token identifier
+  aptosCollectionId     String?  // Aptos collection identifier
+  status                NFTStatus @default(MINTING)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([collectionName, tokenName])
+}
+
+enum NFTStatus {
+  MINTING
+  MINTED
+  FAILED
+  TRANSFERRED
 }

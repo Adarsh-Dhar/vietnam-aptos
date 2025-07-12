@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,145 @@ export default function MintNFTPage() {
   const [progress, setProgress] = useState(0);
   const [mintStep, setMintStep] = useState("");
   const [error, setError] = useState("");
+  const [storageLogs, setStorageLogs] = useState<string[]>([]);
+  const [authStatus, setAuthStatus] = useState<'disconnected' | 'wallet_only' | 'authenticated'>('disconnected');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Add log to storage logs
+  const addStorageLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = `[${timestamp}] ${message}`;
+    setStorageLogs(prev => [...prev, logEntry]);
+    console.log(logEntry);
+  };
+
+  // Auto-authenticate on page load/refresh
+  useEffect(() => {
+    const autoAuthenticate = async () => {
+      try {
+        // Wait a bit for wallet to initialize
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        if (isConnected && address) {
+          addStorageLog('🔄 Auto-authenticating wallet on page load...');
+          
+          // Check if we already have a valid token
+          const existingToken = localStorage.getItem('authToken');
+          if (existingToken) {
+            addStorageLog('✅ Existing authentication token found');
+            setAuthStatus('authenticated');
+            return;
+          }
+          
+          // Try to authenticate
+          await authenticateUser();
+          setAuthStatus('authenticated');
+          addStorageLog('✅ Auto-authentication successful');
+        } else {
+          setAuthStatus('disconnected');
+          addStorageLog('❌ Wallet not connected for auto-authentication');
+        }
+      } catch (error) {
+        setAuthStatus('wallet_only');
+        addStorageLog(`❌ Auto-authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    };
+
+    autoAuthenticate();
+  }, [isConnected, address]);
+
+  // Update auth status when wallet connection changes
+  useEffect(() => {
+    const updateAuthStatus = () => {
+      const token = localStorage.getItem('authToken');
+      const walletConnected = isConnected && address;
+      
+      if (token && walletConnected) {
+        setAuthStatus('authenticated');
+      } else if (walletConnected) {
+        setAuthStatus('wallet_only');
+      } else {
+        setAuthStatus('disconnected');
+      }
+    };
+
+    updateAuthStatus();
+  }, [isConnected, address]);
+
+  // Authenticate user and get JWT token
+  const authenticateUser = async () => {
+    try {
+      addStorageLog('🔐 Starting user authentication...');
+      
+      if (!isConnected || !address) {
+        addStorageLog('❌ Wallet not connected');
+        throw new Error('Please connect your wallet first');
+      }
+
+      addStorageLog(`✅ Wallet connected: ${address}`);
+
+      // Check if we already have a valid token
+      const existingToken = localStorage.getItem('authToken');
+      if (existingToken) {
+        addStorageLog('✅ Existing authentication token found');
+        return existingToken;
+      }
+
+      addStorageLog('📡 Requesting authentication token...');
+      
+      // Create a simple signature for authentication (in production, implement proper signature)
+      const signature = `auth_${Date.now()}_${address}`;
+      
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          aptosAddress: address,
+          signature: signature
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        addStorageLog(`❌ Authentication failed: ${errorData.error}`);
+        throw new Error(errorData.error || 'Authentication failed');
+      }
+
+      const { token, user } = await response.json();
+      
+      // Store token in localStorage
+      localStorage.setItem('authToken', token);
+      addStorageLog(`✅ Authentication successful for user: ${user.aptosAddress}`);
+      
+      return token;
+    } catch (error) {
+      addStorageLog(`❌ Authentication error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
+  };
+
+  // Check authentication status
+  const checkAuthStatus = () => {
+    const token = localStorage.getItem('authToken');
+    const walletConnected = isConnected && address;
+    
+    if (token && walletConnected) {
+      return { status: 'authenticated', message: '✅ Wallet connected and authenticated' };
+    } else if (walletConnected) {
+      return { status: 'wallet_only', message: '⚠️  Wallet connected but not authenticated' };
+    } else {
+      return { status: 'disconnected', message: '❌ Wallet not connected' };
+    }
+  };
+
+  // Clear authentication
+  const clearAuthentication = () => {
+    localStorage.removeItem('authToken');
+    setAuthStatus('wallet_only');
+    addStorageLog('🗑️  Authentication token cleared');
+  };
   
   // Setup Aptos SDK - following the proper pattern
   const APTOS_NETWORK = NetworkToNetworkName[process.env.NEXT_PUBLIC_APTOS_NETWORK || 'devnet'] || Network.DEVNET;
@@ -188,6 +326,74 @@ export default function MintNFTPage() {
     }
   };
 
+  // Save NFT data to database
+  const saveNFTToDatabase = async (nftData: {
+    collectionName: string;
+    collectionDescription: string;
+    collectionUri: string;
+    tokenName: string;
+    tokenDescription: string;
+    tokenUri: string;
+    imageUrl: string;
+    collectionTxHash?: string;
+    mintTxHash?: string;
+    aptosTokenId?: string;
+    aptosCollectionId?: string;
+    status: string;
+  }, authToken: string) => {
+    try {
+      addStorageLog('=== NFT Database Storage Logs ===');
+      addStorageLog('Starting NFT database storage process...');
+      addStorageLog(`NFT Data: ${nftData.collectionName} / ${nftData.tokenName}`);
+      
+      if (!authToken) {
+        addStorageLog('❌ No authentication token provided');
+        throw new Error('No authentication token provided');
+      }
+      
+      addStorageLog('✅ Authentication token provided');
+
+      addStorageLog('📡 Sending request to /api/nft/save...');
+      const response = await fetch('/api/nft/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify(nftData)
+      });
+
+      addStorageLog(`📥 Response received: ${response.status} ${response.statusText}`);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        addStorageLog(`❌ API Error: ${errorData.error || 'Unknown error'}`);
+        throw new Error(errorData.error || 'Failed to save NFT data');
+      }
+
+      const result = await response.json();
+      addStorageLog('✅ NFT successfully saved to database');
+      addStorageLog(`📊 Database Record ID: ${result.nft.id}`);
+      
+      // Log storage summary
+      addStorageLog('=== NFT Storage Summary ===');
+      addStorageLog(`🎯 NFT ID: ${result.nft.id}`);
+      addStorageLog(`👤 Creator: ${result.nft.creator?.aptosAddress || 'Unknown'}`);
+      addStorageLog(`🏷️  Collection: ${result.nft.collectionName}`);
+      addStorageLog(`🖼️  Token: ${result.nft.tokenName}`);
+      addStorageLog(`🔗 Mint TX: ${result.nft.mintTxHash || 'N/A'}`);
+      addStorageLog(`📅 Created: ${new Date(result.nft.createdAt).toLocaleString()}`);
+      addStorageLog(`✅ Status: ${result.nft.status}`);
+      addStorageLog('=== Storage Complete ===');
+      
+      return result.nft;
+    } catch (error) {
+      addStorageLog(`❌ Error saving NFT to database: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Error saving NFT to database:', error);
+      throw error;
+    }
+  };
+
   const handleMint = async () => {
     if (!isConnected) {
       await connect();
@@ -199,28 +405,90 @@ export default function MintNFTPage() {
       return;
     }
     
+    console.log('=== NFT Minting Process Started ===');
+    console.log('🎯 Minting Details:', {
+      collectionName,
+      collectionDescription,
+      tokenName: name,
+      tokenDescription: description,
+      imageUrl,
+      walletAddress: address
+    });
+    
     setMinting(true);
     setProgress(10);
     setError("");
     
     try {
-      // 1. Create collection
-      setProgress(30);
+      // 1. Authenticate user and get JWT token
+      console.log('🔐 Step 1: Authenticating user...');
+      setProgress(20);
+      const token = await authenticateUser();
+      console.log('✅ User authenticated, token obtained.');
+      setProgress(40);
+      
+      // 2. Create collection
+      console.log('📦 Step 2: Creating collection...');
+      setProgress(60);
       setMintStep("Creating collection...");
       const collectionUri = "aptos.dev";
       
       const collectionResult = await createCollection(collectionName, collectionDescription, collectionUri);
-      setProgress(60);
-      
-      // 2. Mint NFT
+      console.log('✅ Collection created:', collectionResult);
       setProgress(80);
+      
+      // 3. Mint NFT
+      console.log('🖼️  Step 3: Minting NFT...');
+      setProgress(90);
       const tokenUri = "https://example.com/nft-metadata.json";
       const mintHash = await mintNFT(collectionName, name, description || "", tokenUri);
-      setProgress(90);
+      console.log('✅ NFT minted successfully:', mintHash);
+      setProgress(100);
+      
+      // 4. Save NFT data to database
+      console.log('💾 Step 4: Saving to database...');
+      setMintStep("Saving to database...");
+      
+      try {
+        const nftData = {
+          collectionName,
+          collectionDescription,
+          collectionUri,
+          tokenName: name,
+          tokenDescription: description || "",
+          tokenUri,
+          imageUrl: imageUrl,
+          collectionTxHash: typeof collectionResult === 'string' ? collectionResult : undefined,
+          mintTxHash: mintHash,
+          status: 'MINTED'
+        };
+        
+        console.log('📊 Preparing NFT data for database storage:', nftData);
+        const savedNFT = await saveNFTToDatabase(nftData, token);
+        
+        console.log('🎉 Complete NFT Process Summary:');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('✅ Blockchain Operations:');
+        console.log(`   • Collection Created: ${collectionResult}`);
+        console.log(`   • NFT Minted: ${mintHash}`);
+        console.log('✅ Database Operations:');
+        console.log(`   • NFT Record ID: ${savedNFT.id}`);
+        console.log(`   • Creator: ${savedNFT.creator?.aptosAddress}`);
+        console.log(`   • Status: ${savedNFT.status}`);
+        console.log(`   • Created At: ${new Date(savedNFT.createdAt).toLocaleString()}`);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
+        toast.success("NFT data saved to database!");
+      } catch (dbError) {
+        console.error('❌ Database storage failed:', dbError);
+        console.log('⚠️  NFT was minted on blockchain but failed to save to database');
+        toast.warning("NFT minted but failed to save to database");
+      }
       
       setMintStep("Confirming transaction...");
       setProgress(100);
       
+      console.log('🎊 NFT Minting Process Complete!');
       toast.success(`NFT Minted Successfully! Transaction: ${mintHash}`);
       
       // Reset form
@@ -231,7 +499,12 @@ export default function MintNFTPage() {
       removeImage();
       
     } catch (err: any) {
-      console.error('Minting failed:', err);
+      console.error('❌ Minting process failed:', err);
+      console.error('🔍 Error details:', {
+        message: err.message,
+        stack: err.stack,
+        type: err.constructor.name
+      });
       const errorMsg = err.message || "Minting failed";
       setError(errorMsg);
       toast.error(`Error: ${errorMsg}`);
@@ -239,6 +512,7 @@ export default function MintNFTPage() {
       setMinting(false);
       setProgress(0);
       setMintStep("");
+      console.log('🏁 Minting process ended');
     }
   };
 
@@ -248,7 +522,7 @@ export default function MintNFTPage() {
         <motion.div 
           initial={{ opacity: 0, y: 20 }} 
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8 text-center"
+          style={{ marginBottom: '2rem', textAlign: 'center' }}
         >
           <h1 className="text-4xl font-bold text-white mb-2">Mint Your NFT</h1>
           <p className="text-gray-400">Create and mint unique NFTs using Aptos SDK with your connected wallet</p>
@@ -306,6 +580,31 @@ export default function MintNFTPage() {
 
             {/* NFT Details */}
             <div className="space-y-6 mb-8">
+              {/* Authentication Status */}
+              <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <span className="text-white text-sm font-medium">Authentication Status</span>
+                  <Badge 
+                    variant={authStatus === 'authenticated' ? 'default' : 'secondary'}
+                    className={authStatus === 'authenticated' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}
+                  >
+                    {authStatus === 'authenticated' ? 'Authenticated' : 
+                     authStatus === 'wallet_only' ? 'Wallet Only' : 'Disconnected'}
+                  </Badge>
+                </div>
+                <p className="text-gray-400 text-xs mt-1">
+                  {authStatus === 'authenticated' ? '✅ Wallet connected and authenticated' :
+                   authStatus === 'wallet_only' ? '⚠️  Wallet connected but not authenticated' :
+                   '❌ Wallet not connected'}
+                </p>
+                {isConnected && address && (
+                  <p className="text-gray-500 text-xs mt-1">Address: {address.slice(0, 8)}...{address.slice(-6)}</p>
+                )}
+                {authStatus === 'wallet_only' && (
+                  <p className="text-yellow-400 text-xs mt-1">Click "Test Authentication" to authenticate</p>
+                )}
+              </div>
+
               <div>
                 <Label className="text-white text-sm font-medium mb-2 block">Collection Name *</Label>
                 <Input 
@@ -367,6 +666,30 @@ export default function MintNFTPage() {
               </div>
             )}
 
+            {/* Storage Logs Display */}
+            {storageLogs.length > 0 && (
+              <div className="mb-6 p-4 bg-gray-800/50 border border-gray-700/50 rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-white font-medium text-sm">Storage Logs</h3>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setStorageLogs([])}
+                    className="text-gray-400 hover:text-white text-xs"
+                  >
+                    Clear
+                  </Button>
+                </div>
+                <div className="max-h-32 overflow-y-auto space-y-1">
+                  {storageLogs.map((log, index) => (
+                    <div key={index} className="text-xs font-mono">
+                      <span className="text-gray-400">{log}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Error Display */}
             {error && (
               <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
@@ -380,7 +703,7 @@ export default function MintNFTPage() {
             {/* Mint Button */}
             <Button
               onClick={handleMint}
-              disabled={minting || !isConnected}
+              disabled={minting || !isConnected || authStatus !== 'authenticated'}
               className="w-full bg-gradient-to-r from-[#00F0FF] to-[#8B5CF6] hover:from-[#00F0FF]/80 hover:to-[#8B5CF6]/80 text-white font-bold py-4 text-lg disabled:opacity-50"
             >
               {minting ? (
@@ -392,6 +715,11 @@ export default function MintNFTPage() {
                 <div className="flex items-center gap-2">
                   <Coins className="h-5 w-5" />
                   Connect Wallet to Mint
+                </div>
+              ) : authStatus !== 'authenticated' ? (
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5" />
+                  Authenticate to Mint
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
@@ -449,6 +777,38 @@ export default function MintNFTPage() {
               >
                 Debug Wallet Connection
               </Button>
+
+              {/* Authentication Test Button */}
+              <Button
+                onClick={async () => {
+                  try {
+                    addStorageLog("=== Authentication Test ===");
+                    const token = await authenticateUser();
+                    addStorageLog(`✅ Authentication successful! Token: ${token.slice(0, 20)}...`);
+                    toast.success("Authentication successful!");
+                  } catch (err) {
+                    addStorageLog(`❌ Authentication failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                    toast.error("Authentication failed");
+                  }
+                }}
+                variant="outline"
+                size="sm"
+                className="mt-2 w-full text-xs"
+              >
+                Test Authentication
+              </Button>
+
+              {/* Clear Authentication Button */}
+              {authStatus === 'authenticated' && (
+                <Button
+                  onClick={clearAuthentication}
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 w-full text-xs text-red-400 border-red-400 hover:bg-red-400/10"
+                >
+                  Clear Authentication
+                </Button>
+              )}
             </div>
 
             {/* Info Cards */}
