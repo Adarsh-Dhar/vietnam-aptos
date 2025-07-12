@@ -28,7 +28,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar"
 import { useForm, Controller } from "react-hook-form"
 import { useState, useEffect } from "react"
-import { createProject as createProjectOnChain, initializePlatform } from "@/lib/contract"
+import { createProject as createProjectOnChain, initializePlatform, getPlatformStats } from "@/lib/contract"
 
 // Helper to generate a random 64-char hex string
 function generateRandomHex64() {
@@ -278,7 +278,27 @@ export default function FoundersPage() {
         return;
       }
 
-      // Step 3: Add to database only after transaction is confirmed
+      // Step 3: Get the contract project ID from platform stats
+      setLoadingStep("Getting contract project ID...")
+      console.log("Getting contract project ID...");
+      
+      let contractProjectId: number
+      try {
+        const platformStats = await getPlatformStats()
+        if (platformStats && Array.isArray(platformStats) && platformStats[0]) {
+          contractProjectId = platformStats[0] as number // The first element is project_counter
+        } else {
+          throw new Error("Could not get platform stats")
+        }
+      } catch (error) {
+        console.error("Error getting contract project ID:", error)
+        setError("Failed to get contract project ID. Please try again.");
+        setLoading(false);
+        setLoadingStep("");
+        return;
+      }
+
+      // Step 4: Add to database only after transaction is confirmed
       setLoadingStep("Adding project to database...")
       console.log("Adding project to database...");
       const jwt = typeof window !== "undefined" ? localStorage.getItem("jwt") : null;
@@ -294,6 +314,7 @@ export default function FoundersPage() {
           deadline: data.deadline ? data.deadline.toISOString() : undefined,
           categories,
           contractTxHash: txHash, // Store the confirmed transaction hash
+          contractProjectId, // Store the contract project ID
           selectedNFTId: selectedNFT.id, // Store the selected NFT ID
           aptosContract: nftContract,
           coverImage: coverImage,

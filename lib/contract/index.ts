@@ -186,6 +186,225 @@ export async function withdrawFees({ amount, onResult }: { amount: number, onRes
   return response.hash;
 }
 
+// 9. Get Project Details (View Function) - Using direct REST API
+export async function getProject(projectId: number) {
+  try {
+    console.log("getProject called with projectId:", projectId, "type:", typeof projectId)
+    
+    // Use direct REST API instead of SDK
+    const response = await fetch("https://fullnode.devnet.aptoslabs.com/v1/view", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        function: `${MODULES.main}::get_project`,
+        type_arguments: [],
+        arguments: [projectId.toString()],
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log("getProject response:", data);
+    return data;
+  } catch (error) {
+    console.error("Error getting project:", error);
+    throw error;
+  }
+}
+
+// 10. Get Platform Stats (View Function)
+export async function getPlatformStats() {
+  try {
+    const payload = {
+      function: `${MODULES.main}::get_platform_stats` as any,
+      type_arguments: [],
+      arguments: [],
+    };
+    const response = await aptos.view({ payload });
+    return response;
+  } catch (error) {
+    console.error("Error getting platform stats:", error);
+    throw error;
+  }
+}
+
+// 11. Get Bet Details (View Function) - Using direct REST API
+export async function getBetDetails(projectId: number, bettorAddress: string) {
+  try {
+    const response = await fetch("https://fullnode.devnet.aptoslabs.com/v1/view", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        function: `${MODULES.main}::get_bet_details`,
+        type_arguments: [],
+        arguments: [projectId.toString(), bettorAddress],
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error getting bet details:", error);
+    throw error;
+  }
+}
+
+// 12. Calculate Potential Payout (View Function) - Using direct REST API
+export async function calculatePotentialPayout(projectId: number, bettorAddress: string) {
+  try {
+    const response = await fetch("https://fullnode.devnet.aptoslabs.com/v1/view", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        function: `${MODULES.main}::calculate_potential_payout`,
+        type_arguments: [],
+        arguments: [projectId.toString(), bettorAddress],
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error calculating potential payout:", error);
+    throw error;
+  }
+}
+
+// 13. Get All Projects (Helper function to iterate through project IDs)
+export async function getAllProjects(maxProjectId: number = 100) {
+  const projects = [];
+  for (let i = 1; i <= maxProjectId; i++) {
+    try {
+      const project = await getProject(i);
+      if (project) {
+        projects.push({
+          id: i,
+          ...project
+        });
+      }
+    } catch (error) {
+      // Project doesn't exist, continue to next
+      continue;
+    }
+  }
+  return projects;
+}
+
+// 14. Get User Portfolio (Helper function to get all user bets)
+export async function getUserPortfolio(userAddress: string, maxProjectId: number = 100) {
+  const userBets = [];
+  for (let i = 1; i <= maxProjectId; i++) {
+    try {
+      const betDetails = await getBetDetails(i, userAddress);
+      if (betDetails && Array.isArray(betDetails) && betDetails[0] && typeof betDetails[0] === 'number' && betDetails[0] > 0) {
+        const project = await getProject(i);
+        userBets.push({
+          projectId: i,
+          project,
+          betDetails
+        });
+      }
+    } catch (error) {
+      // No bet or project doesn't exist, continue
+      continue;
+    }
+  }
+  return userBets;
+}
+
+// 15. Enhanced Place Bet with better error handling
+export async function placeBetEnhanced({ projectId, amount, betType, onResult }: { 
+  projectId: number, 
+  amount: number, 
+  betType: 'SUPPORT' | 'DOUBT', 
+  onResult?: (hash: string) => void 
+}) {
+  try {
+    const wallet = getAptosWallet();
+    const betTypeNumber = betType === 'SUPPORT' ? 1 : 2;
+    
+    // Ensure projectId is a valid number
+    if (!projectId || isNaN(projectId) || projectId <= 0) {
+      throw new Error(`Invalid project ID: ${projectId}`);
+    }
+    
+    const payload = {
+      type: "entry_function_payload",
+      function: `${MODULES.main}::place_bet`,
+      type_arguments: [],
+      arguments: [projectId, amount, betTypeNumber],
+    };
+    
+    console.log("Placing bet with payload:", payload);
+    const response = await wallet.signAndSubmitTransaction({ payload });
+    await aptos.waitForTransaction({ transactionHash: response.hash });
+    
+    if (onResult) onResult(response.hash);
+    return response.hash;
+  } catch (error) {
+    console.error("Error placing bet:", error);
+    throw error;
+  }
+}
+
+// 16. Enhanced Claim Payout with better error handling
+export async function claimPayoutEnhanced({ projectId, onResult }: { 
+  projectId: number, 
+  onResult?: (hash: string) => void 
+}) {
+  try {
+    const wallet = getAptosWallet();
+    const account = await wallet.account();
+    
+    const payload = {
+      type: "entry_function_payload",
+      function: `${MODULES.main}::claim_payout`,
+      type_arguments: [],
+      arguments: [account.address, projectId],
+    };
+    
+    console.log("Claiming payout with payload:", payload);
+    const response = await wallet.signAndSubmitTransaction({ payload });
+    await aptos.waitForTransaction({ transactionHash: response.hash });
+    
+    if (onResult) onResult(response.hash);
+    return response.hash;
+  } catch (error) {
+    console.error("Error claiming payout:", error);
+    throw error;
+  }
+}
+
+// Get APT balance for an address
+export async function getAptBalance(address: string): Promise<number> {
+  try {
+    const response = await fetch(`https://fullnode.devnet.aptoslabs.com/v1/accounts/${address}/resource/0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>`)
+    if (!response.ok) throw new Error('Failed to fetch balance')
+    const data = await response.json()
+    return parseInt(data.data.coin.value, 10) / 1_000_000 // Return in APT
+  } catch (error) {
+    console.error('Error fetching APT balance:', error)
+    return 0
+  }
+}
+
 async function runAllTransactions(aptos: any) {
   // 1. initialize
   const txn1 = await aptos.transaction.build.simple({

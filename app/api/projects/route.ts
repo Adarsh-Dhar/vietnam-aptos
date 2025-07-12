@@ -108,7 +108,8 @@ export async function POST(request: NextRequest) {
       targetHolders,
       deadline,
       categories,
-      selectedNFTId
+      selectedNFTId,
+      contractProjectId
     } = await request.json()
 
     // Validate required fields
@@ -124,6 +125,7 @@ export async function POST(request: NextRequest) {
       data: {
         creatorId: authUser.id,
         aptosContract,
+        contractProjectId: contractProjectId || null,
         name,
         description,
         coverImage,

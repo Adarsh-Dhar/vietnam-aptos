@@ -47,6 +47,7 @@ model Project {
   creator         User       @relation(fields: [creatorId], references: [id])
   creatorId       String
   aptosContract   String     // Removed @unique constraint
+  contractProjectId Int?     // Contract project ID from blockchain
   name            String
   description     String
   coverImage      String?

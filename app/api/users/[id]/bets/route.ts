@@ -4,7 +4,7 @@ import { authenticateUser } from '../../../../../lib/auth'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authUser = await authenticateUser(request)
@@ -15,8 +15,11 @@ export async function GET(
       )
     }
 
+    // Await params before using its properties
+    const { id } = await params
+
     // Users can only view their own bets unless they're admin
-    if (authUser.id !== params.id && !authUser.roles.includes('ADMIN')) {
+    if (authUser.id !== id && !authUser.roles.includes('ADMIN')) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -28,7 +31,7 @@ export async function GET(
     const offset = parseInt(searchParams.get('offset') || '0')
     const status = searchParams.get('status')
 
-    const where: any = { userId: params.id }
+    const where: any = { userId: id }
     if (status) {
       where.project = { status }
     }
@@ -59,29 +62,29 @@ export async function GET(
     })
 
     // Calculate portfolio stats
-    const totalBets = await prisma.bet.count({ where: { userId: params.id } })
+    const totalBets = await prisma.bet.count({ where: { userId: id } })
     const totalInvested = await prisma.bet.aggregate({
-      where: { userId: params.id },
+      where: { userId: id },
       _sum: { amount: true }
     })
 
     const activeBets = await prisma.bet.count({
       where: {
-        userId: params.id,
+        userId: id,
         project: { status: 'ACTIVE' }
       }
     })
 
     const successfulBets = await prisma.bet.count({
       where: {
-        userId: params.id,
+        userId: id,
         project: { status: 'SUCCESS' }
       }
     })
 
     const failedBets = await prisma.bet.count({
       where: {
-        userId: params.id,
+        userId: id,
         project: { status: 'FAILURE' }
       }
     })
@@ -92,7 +95,7 @@ export async function GET(
 
     // Get total payouts
     const totalPayouts = await prisma.payout.aggregate({
-      where: { userId: params.id },
+      where: { userId: id },
       _sum: { amount: true }
     })
 
