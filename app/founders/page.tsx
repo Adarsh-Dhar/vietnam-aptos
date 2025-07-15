@@ -314,7 +314,7 @@ export default function FoundersPage() {
           deadline: data.deadline ? data.deadline.toISOString() : undefined,
           categories,
           contractTxHash: txHash, // Store the confirmed transaction hash
-          contractProjectId, // Store the contract project ID
+          contractProjectId: Number(contractProjectId), // Ensure it's a number
           selectedNFTId: selectedNFT.id, // Store the selected NFT ID
           aptosContract: nftContract,
           coverImage: coverImage,
