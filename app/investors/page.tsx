@@ -39,7 +39,8 @@ import {
   calculatePotentialPayout,
   getUserPortfolio,
   getPlatformStats,
-  getAptBalance
+  getAptBalance,
+  getAllProjects
 } from "@/lib/contract"
 
 // Remove the hardcoded portfolioStats array
@@ -86,6 +87,12 @@ export default function InvestorsPage() {
       }
     }
     fetchProjects()
+    // Log all contract projects on page load
+    getAllProjects().then((projects) => {
+      console.log('Contract projects:', projects)
+    }).catch((err) => {
+      console.error('Error fetching contract projects:', err)
+    })
     // Check if token exists
     if (typeof window !== 'undefined' && localStorage.getItem('token')) {
       setIsAuthenticated(true)

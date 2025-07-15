@@ -1,6 +1,7 @@
 module nft_validation::main {
     use std::signer;
     use std::timestamp;
+    use std::vector;
     use aptos_framework::coin;
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_std::table::{Self, Table};
@@ -230,6 +231,20 @@ module nft_validation::main {
         
         let project = table::borrow(&platform.projects, project_id);
         project::get_project_details(project)
+    }
+
+    #[view]
+    public fun get_all_project_ids(): vector<u64> acquires Platform {
+        let platform = borrow_global<Platform>(get_platform_admin());
+        let ids = vector::empty<u64>();
+        let i = 1;
+        while (i <= platform.project_counter) {
+            if (table::contains(&platform.projects, i)) {
+                vector::push_back(&mut ids, i);
+            };
+            i = i + 1;
+        };
+        ids
     }
 
     #[view]

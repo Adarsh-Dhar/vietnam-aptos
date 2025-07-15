@@ -4,13 +4,13 @@
 import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
 
 const MODULES = {
-  bet_types: "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7::bet_types",
-  project: "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7::project",
-  betting: "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7::betting",
-  security: "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7::security",
-  main: "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7::main",
-  nft_validator: "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7::nft_validator",
-  oracle: "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7::oracle",
+  bet_types: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::bet_types",
+  project: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::project",
+  betting: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::betting",
+  security: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::security",
+  main: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::main",
+  nft_validator: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::nft_validator",
+  oracle: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::oracle",
 };
 
 const MODULE = MODULES.main;
@@ -31,7 +31,7 @@ const NEW_ORACLE = "0x7";
 const LISTING_FEE = 1000000;
 const PLATFORM_FEE_BPS = 100;
 const WITHDRAW_AMOUNT = 500000;
-const ORACLE_ADDRESS = "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7";
+const ORACLE_ADDRESS = "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6";
 
 // Helper to get the connected wallet
 function getAptosWallet() {
@@ -288,23 +288,44 @@ export async function calculatePotentialPayout(projectId: number, bettorAddress:
 }
 
 // 13. Get All Projects (Helper function to iterate through project IDs)
-export async function getAllProjects(maxProjectId: number = 100) {
-  const projects = [];
-  for (let i = 1; i <= maxProjectId; i++) {
-    try {
-      const project = await getProject(i);
-      if (project) {
-        projects.push({
-          id: i,
-          ...project
-        });
-      }
-    } catch (error) {
-      // Project doesn't exist, continue to next
-      continue;
+export async function getAllProjects() {
+  try {
+    // 1. Fetch all project IDs from the contract
+    const idsResponse = await fetch("https://fullnode.devnet.aptoslabs.com/v1/view", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        function: `${MODULES.main}::get_all_project_ids`,
+        type_arguments: [],
+        arguments: [],
+      }),
+    });
+    if (!idsResponse.ok) {
+      throw new Error(`HTTP error! status: ${idsResponse.status}`);
     }
+    const ids = await idsResponse.json();
+    if (!Array.isArray(ids)) return [];
+
+    // 2. Fetch each project by ID
+    const projects = await Promise.all(
+      ids.map(async (id) => {
+        try {
+          const project = await getProject(Number(id));
+          return { id: Number(id), ...project };
+        } catch (error) {
+          // Skip if project fetch fails
+          return null;
+        }
+      })
+    );
+    // 3. Filter out any nulls (failed fetches)
+    return projects.filter(Boolean);
+  } catch (error) {
+    console.error("Error getting all projects:", error);
+    throw error;
   }
-  return projects;
 }
 
 // 14. Get User Portfolio (Helper function to get all user bets)
