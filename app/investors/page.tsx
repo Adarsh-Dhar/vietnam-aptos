@@ -120,7 +120,11 @@ export default function InvestorsPage() {
   // Fetch wallet balance when wallet connects
   useEffect(() => {
     if (isConnected && address) {
-      getAptBalance(address).then(setWalletBalance)
+      (async () => {
+        const balance = await getAptBalance(address)
+        console.log("Wallet balance:", balance)
+        setWalletBalance(balance)
+      })()
     }
   }, [isConnected, address])
 

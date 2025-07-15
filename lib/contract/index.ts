@@ -395,13 +395,19 @@ export async function claimPayoutEnhanced({ projectId, onResult }: {
 // Get APT balance for an address
 export async function getAptBalance(address: string): Promise<number> {
   try {
-    const response = await fetch(`https://fullnode.devnet.aptoslabs.com/v1/accounts/${address}/resource/0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>`)
-    if (!response.ok) throw new Error('Failed to fetch balance')
-    const data = await response.json()
-    return parseInt(data.data.coin.value, 10) / 1_000_000 // Return in APT
+    const coinType = "0x1::aptos_coin::AptosCoin";
+    const [balanceStr] = await aptos.view<[string]>({
+      payload: {
+        function: "0x1::coin::balance",
+        typeArguments: [coinType],
+        functionArguments: [address]
+      }
+    });
+    console.log("balanceStr", balanceStr)
+    return parseInt(balanceStr, 10) / 1_000_000; // Return in APT
   } catch (error) {
-    console.error('Error fetching APT balance:', error)
-    return 0
+    console.error('Error fetching APT balance:', error);
+    return 0;
   }
 }
 
