@@ -4,13 +4,13 @@
 import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
 
 const MODULES = {
-  bet_types: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::bet_types",
-  project: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::project",
-  betting: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::betting",
-  security: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::security",
-  main: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::main",
-  nft_validator: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::nft_validator",
-  oracle: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::oracle",
+  bet_types: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::bet_types",
+  project: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::project",
+  betting: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::betting",
+  security: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::security",
+  main: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::main",
+  nft_validator: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::nft_validator",
+  oracle: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::oracle",
 };
 
 const MODULE = MODULES.main;
@@ -31,7 +31,7 @@ const NEW_ORACLE = "0x7";
 const LISTING_FEE = 1000000;
 const PLATFORM_FEE_BPS = 100;
 const WITHDRAW_AMOUNT = 500000;
-const ORACLE_ADDRESS = "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6";
+const ORACLE_ADDRESS = "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b";
 
 // Helper to get the connected wallet
 function getAptosWallet() {
@@ -186,30 +186,18 @@ export async function withdrawFees({ amount, onResult }: { amount: number, onRes
   return response.hash;
 }
 
-// 9. Get Project Details (View Function) - Using direct REST API
+// 9. Get Project Details (View Function) - Using SDK
 export async function getProject(projectId: number) {
   try {
-    console.log("getProject called with projectId:", projectId, "type:", typeof projectId)
-    
-    // Use direct REST API instead of SDK
-    const response = await fetch("https://fullnode.devnet.aptoslabs.com/v1/view", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        function: `${MODULES.main}::get_project`,
-        type_arguments: [],
-        arguments: [projectId.toString()],
-      }),
+    const functionString = `${MODULES.main.split('::')[0]}::main::get_project` as `${string}::${string}::${string}`;
+    console.log('Calling function:', functionString, 'with projectId:', projectId);
+    const [data] = await aptos.view<any[]>({
+      payload: {
+        function: functionString,
+        typeArguments: [],
+        functionArguments: [projectId.toString()],
+      }
     });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log("getProject response:", data);
     return data;
   } catch (error) {
     console.error("Error getting project:", error);
@@ -233,26 +221,16 @@ export async function getPlatformStats() {
   }
 }
 
-// 11. Get Bet Details (View Function) - Using direct REST API
+// 11. Get Bet Details (View Function) - Using SDK
 export async function getBetDetails(projectId: number, bettorAddress: string) {
   try {
-    const response = await fetch("https://fullnode.devnet.aptoslabs.com/v1/view", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        function: `${MODULES.main}::get_bet_details`,
-        type_arguments: [],
-        arguments: [projectId.toString(), bettorAddress],
-      }),
+    const [data] = await aptos.view<any[]>({
+      payload: {
+        function: `${MODULES.main.split('::')[0]}::main::get_bet_details`,
+        typeArguments: [],
+        functionArguments: [projectId.toString(), bettorAddress],
+      }
     });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
     return data;
   } catch (error) {
     console.error("Error getting bet details:", error);
@@ -260,26 +238,16 @@ export async function getBetDetails(projectId: number, bettorAddress: string) {
   }
 }
 
-// 12. Calculate Potential Payout (View Function) - Using direct REST API
+// 12. Calculate Potential Payout (View Function) - Using SDK
 export async function calculatePotentialPayout(projectId: number, bettorAddress: string) {
   try {
-    const response = await fetch("https://fullnode.devnet.aptoslabs.com/v1/view", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        function: `${MODULES.main}::calculate_potential_payout`,
-        type_arguments: [],
-        arguments: [projectId.toString(), bettorAddress],
-      }),
+    const [data] = await aptos.view<any[]>({
+      payload: {
+        function: `${MODULES.main.split('::')[0]}::main::calculate_potential_payout`,
+        typeArguments: [],
+        functionArguments: [projectId.toString(), bettorAddress],
+      }
     });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
     return data;
   } catch (error) {
     console.error("Error calculating potential payout:", error);
@@ -289,43 +257,33 @@ export async function calculatePotentialPayout(projectId: number, bettorAddress:
 
 // 13. Get All Projects (Helper function to iterate through project IDs)
 export async function getAllProjects() {
-  try {
-    // 1. Fetch all project IDs from the contract
-    const idsResponse = await fetch("https://fullnode.devnet.aptoslabs.com/v1/view", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        function: `${MODULES.main}::get_all_project_ids`,
-        type_arguments: [],
-        arguments: [],
-      }),
-    });
-    if (!idsResponse.ok) {
-      throw new Error(`HTTP error! status: ${idsResponse.status}`);
+  // 1. Get all project IDs as strings
+  const ids = await aptos.view<string[]>({
+    payload: {
+      function: `${MODULES.main.split('::')[0]}::main::get_all_project_ids`,
+      typeArguments: [],
+      functionArguments: [],
     }
-    const ids = await idsResponse.json();
-    if (!Array.isArray(ids)) return [];
+  });
+  if (!ids?.length) return [];
 
-    // 2. Fetch each project by ID
-    const projects = await Promise.all(
-      ids.map(async (id) => {
-        try {
-          const project = await getProject(Number(id));
-          return { id: Number(id), ...project };
-        } catch (error) {
-          // Skip if project fetch fails
-          return null;
-        }
+  // 2. Fetch each project using the SDK
+  const projects = await Promise.all(
+    ids
+      .map((idStr) => Number(idStr))
+      .filter((id) => Number.isFinite(id) && !isNaN(id) && id > 0)
+      .map(async (id) => {
+        const [projectData] = await aptos.view<any[]>({
+          payload: {
+            function: `${MODULES.main.split('::')[0]}::main::get_project`,
+            typeArguments: [],
+            functionArguments: [id],
+          }
+        });
+        return { id, ...projectData };
       })
-    );
-    // 3. Filter out any nulls (failed fetches)
-    return projects.filter(Boolean);
-  } catch (error) {
-    console.error("Error getting all projects:", error);
-    throw error;
-  }
+  );
+  return projects;
 }
 
 // 14. Get User Portfolio (Helper function to get all user bets)

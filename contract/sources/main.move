@@ -71,7 +71,7 @@ module nft_validation::main {
     // Helper function to get the admin address from Platform resource
     fun get_platform_admin(): address {
         // The Platform resource is stored at the admin's address
-        @0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7
+        @0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b
     }
 
     // Create a new NFT validation project

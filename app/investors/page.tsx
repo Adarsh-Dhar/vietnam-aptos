@@ -93,6 +93,47 @@ export default function InvestorsPage() {
     }).catch((err) => {
       console.error('Error fetching contract projects:', err)
     })
+    // Log platform stats on page load
+    getPlatformStats().then((stats) => {
+      console.log('Platform stats from contract (on mount):', stats)
+    }).catch((err) => {
+      console.error('Error fetching platform stats (on mount):', err)
+    })
+    // Test if projects 1 and 2 exist on-chain
+    getProject(1).then(data => {
+      console.log('Project 1 raw:', data);
+      if (Array.isArray(data)) {
+        const [creator, targetHolders, deadline, supportPool, doubtPool, status, nftContract] = data;
+        const statusMap: { [key: number]: string } = { 0: 'Active', 1: 'Success', 2: 'Failed' };
+        const statusNum = typeof status === 'string' ? parseInt(status, 10) : Number(status);
+        console.log('Project 1 details:', {
+          creator,
+          targetHolders,
+          deadline: new Date(Number(deadline) * 1000).toLocaleString(),
+          supportPool,
+          doubtPool,
+          status: statusMap[statusNum] ?? status,
+          nftContract
+        });
+      }
+    }).catch(e => console.error('Project 1 error:', e));
+    getProject(2).then(data => {
+      console.log('Project 2 raw:', data);
+      if (Array.isArray(data)) {
+        const [creator, targetHolders, deadline, supportPool, doubtPool, status, nftContract] = data;
+        const statusMap: { [key: number]: string } = { 0: 'Active', 1: 'Success', 2: 'Failed' };
+        const statusNum = typeof status === 'string' ? parseInt(status, 10) : Number(status);
+        console.log('Project 2 details:', {
+          creator,
+          targetHolders,
+          deadline: new Date(Number(deadline) * 1000).toLocaleString(),
+          supportPool,
+          doubtPool,
+          status: statusMap[statusNum] ?? status,
+          nftContract
+        });
+      }
+    }).catch(e => console.error('Project 2 error:', e));
     // Check if token exists
     if (typeof window !== 'undefined' && localStorage.getItem('token')) {
       setIsAuthenticated(true)
