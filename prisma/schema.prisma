@@ -7,6 +7,143 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id              String     @id @default(uuid())
+  aptosAddress    String     @unique
+  username        String?
+  bio             String?
+  roles           UserRole[]
+  reputation      Float      @default(0.0)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  bets            Bet[]
+  nfts            NFT[]
+  payouts         Payout[]
+  createdProjects Project[]
+}
+
+model Project {
+  id                String        @id @default(uuid())
+  creatorId         String
+  aptosContract     String
+  name              String
+  description       String
+  coverImage        String?
+  listingFee        Float
+  targetHolders     Int
+  currentHolders    Int           @default(0)
+  deadline          DateTime
+  status            ProjectStatus @default(ACTIVE)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  doubtPool         Float         @default(0)
+  platformFee       Float         @default(0.01)
+  supportPool       Float         @default(0)
+  totalPool         Float         @default(0)
+  selectedNFTId     String?
+  contractProjectId Int?
+  bets              Bet[]
+  metrics           Metric[]
+  Payout            Payout[]
+  creator           User          @relation(fields: [creatorId], references: [id])
+  selectedNFT       NFT?          @relation(fields: [selectedNFTId], references: [id])
+  validation        Validation?
+  categories        Category[]    @relation("CategoryToProject")
+}
+
+model Metric {
+  id          String   @id @default(uuid())
+  projectId   String
+  holderCount Int
+  volume      Float
+  avgPrice    Float
+  timestamp   DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id])
+}
+
+model Bet {
+  id        String   @id @default(uuid())
+  projectId String
+  userId    String
+  amount    Float
+  type      BetType
+  odds      Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  claimed   Boolean  @default(false)
+  project   Project  @relation(fields: [projectId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([projectId, userId])
+}
+
+model Validation {
+  id           String    @id @default(uuid())
+  projectId    String    @unique
+  finalHolders Int
+  supportPool  Float
+  doubtPool    Float
+  totalPool    Float
+  platformFee  Float
+  oracleTxHash String?
+  processedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  project      Project   @relation(fields: [projectId], references: [id])
+}
+
+model Payout {
+  id        String   @id @default(uuid())
+  userId    String
+  projectId String
+  amount    Float
+  txHash    String?
+  type      BetType
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Category {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  projects Project[] @relation("CategoryToProject")
+}
+
+model PlatformStats {
+  id               String @id @default("1")
+  totalProjects    Int    @default(0)
+  activeProjects   Int    @default(0)
+  totalVolume      Float  @default(0)
+  avgSuccessRate   Float  @default(0)
+  totalPayouts     Float  @default(0)
+  platformEarnings Float  @default(0)
+}
+
+model NFT {
+  id                    String    @id @default(uuid())
+  creatorId             String
+  collectionName        String
+  collectionDescription String
+  collectionUri         String
+  tokenName             String
+  tokenDescription      String?
+  tokenUri              String
+  imageUrl              String?
+  collectionTxHash      String?
+  mintTxHash            String?
+  aptosTokenId          String?
+  aptosCollectionId     String?
+  status                NFTStatus @default(MINTING)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  collectionAddress     String?
+  tokenAddress          String?
+  creator               User      @relation(fields: [creatorId], references: [id])
+  projects              Project[]
+
+  @@unique([collectionName, tokenName])
+}
+
 enum ProjectStatus {
   ACTIVE
   SUCCESS
@@ -25,144 +162,6 @@ enum UserRole {
   FOUNDER
   INVESTOR
   ADMIN
-}
-
-model User {
-  id            String    @id @default(uuid())
-  aptosAddress  String    @unique
-  username      String?
-  bio           String?
-  roles         UserRole[]
-  reputation    Float     @default(0.0)
-  createdProjects Project[]
-  bets          Bet[]
-  payouts       Payout[]
-  nfts          NFT[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-}
-
-model Project {
-  id              String     @id @default(uuid())
-  creator         User       @relation(fields: [creatorId], references: [id])
-  creatorId       String
-  aptosContract   String     // Removed @unique constraint
-  contractProjectId Int?     // Contract project ID from blockchain
-  name            String
-  description     String
-  coverImage      String?
-  listingFee      Float
-  targetHolders   Int
-  currentHolders  Int        @default(0)
-  deadline        DateTime
-  status          ProjectStatus @default(ACTIVE)
-  supportPool     Float      @default(0)
-  doubtPool       Float      @default(0)
-  totalPool       Float      @default(0)
-  platformFee     Float      @default(0.01)
-  selectedNFTId   String?    // ID of the selected NFT for this project
-  selectedNFT     NFT?       @relation(fields: [selectedNFTId], references: [id])
-  bets            Bet[]
-  validation      Validation?
-  metrics         Metric[]
-  categories      Category[]
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-
-  Payout Payout[]
-}
-
-model Metric {
-  id          String   @id @default(uuid())
-  project     Project  @relation(fields: [projectId], references: [id])
-  projectId   String
-  holderCount Int
-  volume      Float
-  avgPrice    Float
-  timestamp   DateTime @default(now())
-}
-
-model Bet {
-  id        String   @id @default(uuid())
-  project   Project  @relation(fields: [projectId], references: [id])
-  projectId String
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
-  amount    Float
-  type      BetType
-  odds      Float
-  claimed   Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([projectId, userId])
-}
-
-model Validation {
-  id             String   @id @default(uuid())
-  project        Project  @relation(fields: [projectId], references: [id])
-  projectId      String   @unique
-  finalHolders   Int
-  supportPool    Float
-  doubtPool      Float
-  totalPool      Float
-  platformFee    Float
-  oracleTxHash   String?
-  processedAt    DateTime?
-  createdAt      DateTime @default(now())
-}
-
-model Payout {
-  id          String   @id @default(uuid())
-  user        User     @relation(fields: [userId], references: [id])
-  userId      String
-  project     Project  @relation(fields: [projectId], references: [id])
-  projectId   String
-  amount      Float
-  txHash      String?
-  type        BetType
-  createdAt   DateTime @default(now())
-}
-
-model Category {
-  id       String    @id @default(uuid())
-  name     String    @unique
-  projects Project[]
-}
-
-model PlatformStats {
-  id               String  @id @default("1" )
-  totalProjects    Int     @default(0)
-  activeProjects   Int     @default(0)
-  totalVolume      Float   @default(0)
-  avgSuccessRate   Float   @default(0)
-  totalPayouts     Float   @default(0)
-  platformEarnings Float   @default(0)
-}
-
-model NFT {
-  id                    String   @id @default(uuid())
-  creator               User     @relation(fields: [creatorId], references: [id])
-  creatorId             String
-  collectionName        String
-  collectionDescription String
-  collectionUri         String
-  tokenName             String
-  tokenDescription      String?
-  tokenUri              String
-  imageUrl              String?
-  collectionTxHash      String?
-  mintTxHash            String?
-  aptosTokenId          String?  // Aptos token identifier
-  aptosCollectionId     String?  // Aptos collection identifier
-  status                NFTStatus @default(MINTING)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-
-  // Relations
-  projects Project[]     // Projects that use this NFT
-
-  @@unique([collectionName, tokenName])
 }
 
 enum NFTStatus {

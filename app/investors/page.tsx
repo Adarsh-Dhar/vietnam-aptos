@@ -9,10 +9,13 @@ import { Progress } from "@/components/ui/progress"
 import { Form, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
-import { ThumbsUp, ThumbsDown, Eye } from "lucide-react"
+import { ThumbsUp, ThumbsDown, Eye, Users, Loader2, AlertCircle, CheckCircle } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { useWallet } from "@/components/wallet/wallet-provider"
-import { placeBet } from "@/lib/contract";
+import { placeBet } from "@/lib/contract"
+import { checkProjectHoldings, HoldingsCheckResult } from "@/lib/oracle"
+import { Network } from "@aptos-labs/ts-sdk"
+import { toast } from "sonner"
 
 interface Project {
   id: string
@@ -26,7 +29,12 @@ interface Project {
   doubtPool: number
   totalPool: number
   categories: { name: string }[]
-  selectedNFT?: { imageUrl?: string; tokenName?: string; collectionName?: string }
+  selectedNFT?: { 
+    imageUrl?: string; 
+    tokenName?: string; 
+    collectionName?: string;
+    collectionAddress?: string;
+  }
   creator: { username?: string }
 }
 
@@ -39,20 +47,102 @@ export default function InvestorsPage() {
   const [betting, setBetting] = useState<string | null>(null)
   const [betError, setBetError] = useState<string | null>(null)
   const [betSuccess, setBetSuccess] = useState<string | null>(null)
+  const [checkingHoldings, setCheckingHoldings] = useState<string | null>(null)
+  const [holdingsResults, setHoldingsResults] = useState<Record<string, HoldingsCheckResult>>({})
   const { isConnected, connect } = useWallet()
 
   useEffect(() => {
     fetch("/api/projects")
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`)
+        }
+        return res.json()
+      })
       .then(data => {
-        setProjects(data)
+        // Ensure data is an array
+        if (Array.isArray(data)) {
+          setProjects(data)
+        } else {
+          console.error('API returned non-array data:', data)
+          setProjects([])
+          setError("Invalid data format received from server")
+        }
         setLoading(false)
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('Failed to load projects:', err)
         setError("Failed to load projects.")
+        setProjects([])
         setLoading(false)
       })
   }, [])
+
+  const handleCheckHoldings = async (project: Project) => {
+    // Debug logging to see what we're getting
+    console.log('Project data:', project);
+    console.log('Selected NFT:', project.selectedNFT);
+    console.log('Collection address from API:', project.selectedNFT?.collectionAddress);
+    
+    // Use real collection address if available, otherwise use a sample
+    const collectionAddress = project.selectedNFT?.collectionAddress || 
+      "0x1234567890123456789012345678901234567890123456789012345678901234" // Fallback sample address
+    
+    console.log('Final collection address to use:', collectionAddress);
+    
+    if (!collectionAddress) {
+      toast.error(`No collection address found for ${project.name}`);
+      return;
+    }
+
+    setCheckingHoldings(project.id)
+    try {
+      const result = await checkProjectHoldings(
+        project.name,
+        collectionAddress,
+        Network.DEVNET // Use devnet since NFTs are on devnet
+      )
+      
+      // Store the result
+      setHoldingsResults(prev => ({
+        ...prev,
+        [project.id]: result
+      }))
+      
+      if (result.success) {
+        toast.success(`Found ${result.holderCount} holders for ${project.name}`);
+        console.log(`Holder count for ${project.name}: ${result.holderCount}`);
+      } else {
+        toast.error(`Failed to check holdings: ${result.error}`);
+        console.error(`Error checking holdings for ${project.name}:`, result.error);
+      }
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast.error(`Error checking holdings: ${errorMessage}`);
+      console.error(`Error checking holdings for ${project.name}:`, error);
+      
+      // Store error result
+      setHoldingsResults(prev => ({
+        ...prev,
+        [project.id]: {
+          success: false,
+          holderCount: 0,
+          totalTokens: 0,
+          uniqueHolders: [],
+          error: errorMessage,
+          projectName: project.name,
+          collectionAddress
+        }
+      }));
+    } finally {
+      setCheckingHoldings(null)
+    }
+  }
+
+  const getHoldingsResult = (projectId: string): HoldingsCheckResult | null => {
+    return holdingsResults[projectId] || null;
+  }
 
   return (
     <div className="min-h-screen bg-[#0A0F2B] particle-bg p-6">
@@ -65,6 +155,8 @@ export default function InvestorsPage() {
           <div className="text-center text-gray-400 py-20">Loading projects...</div>
         ) : error ? (
           <div className="text-center text-red-400 py-20">{error}</div>
+        ) : projects.length === 0 ? (
+          <div className="text-center text-gray-400 py-20">No projects found.</div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {projects.map((project, index) => {
@@ -78,6 +170,9 @@ export default function InvestorsPage() {
                 const hours = Math.floor((diff / (1000 * 60 * 60)) % 24)
                 return `${days}d ${hours}h left`
               })()
+              
+              const holdingsResult = getHoldingsResult(project.id);
+              
               return (
                 <motion.div
                   key={project.id}
@@ -92,7 +187,7 @@ export default function InvestorsPage() {
                         <h3 className="text-xl font-bold text-white mb-2">{project.name}</h3>
                         <p className="text-gray-400 text-sm mb-3">{project.description}</p>
                         <div className="flex gap-2 mb-2">
-                          {project.categories.map(cat => (
+                          {project.categories?.map(cat => (
                             <Badge key={cat.name} variant="outline" className="border-[#00F0FF]/50 text-[#00F0FF]">
                               {cat.name}
                             </Badge>
@@ -102,10 +197,52 @@ export default function InvestorsPage() {
                           <img src={project.selectedNFT.imageUrl} alt="NFT" className="w-16 h-16 rounded-lg mb-2 border border-white/10" />
                         )}
                         <div className="text-xs text-gray-500">By {project.creator?.username || "Founder"}</div>
+                        
+                        {/* Holdings Result Display */}
+                        {holdingsResult && (
+                          <div className="mt-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+                            {holdingsResult.success ? (
+                              <div className="flex items-center gap-2 text-green-400">
+                                <CheckCircle className="h-4 w-4" />
+                                <span className="text-sm font-medium">
+                                  {holdingsResult.holderCount} holders found
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 text-red-400">
+                                <AlertCircle className="h-4 w-4" />
+                                <span className="text-sm">
+                                  {holdingsResult.error}
+                                </span>
+                              </div>
+                            )}
+                            {holdingsResult.success && (
+                              <div className="text-xs text-gray-400 mt-1">
+                                Collection: {holdingsResult.collectionAddress?.slice(0, 20)}...
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <Button size="sm" variant="ghost" className="text-gray-400">
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="text-gray-400 hover:text-[#00F0FF]"
+                          onClick={() => handleCheckHoldings(project)}
+                          disabled={checkingHoldings === project.id}
+                          title="Check NFT Holdings"
+                        >
+                          {checkingHoldings === project.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Users className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button size="sm" variant="ghost" className="text-gray-400">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                     <div className="space-y-4">
                       <div>

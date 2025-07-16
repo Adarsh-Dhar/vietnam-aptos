@@ -4,12 +4,16 @@ import { authenticateUser } from '../../../lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('GET /api/projects - Starting request')
+    
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = parseInt(searchParams.get('offset') || '0')
     const status = searchParams.get('status')
     const category = searchParams.get('category')
     const search = searchParams.get('search')
+
+    console.log('Search params:', { limit, offset, status, category, search })
 
     const where: any = {}
     if (status) where.status = status
@@ -23,6 +27,20 @@ export async function GET(request: NextRequest) {
         { name: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } }
       ]
+    }
+
+    console.log('Database query where clause:', where)
+
+    // Test database connection first
+    try {
+      await prisma.$connect()
+      console.log('Database connection successful')
+    } catch (dbError) {
+      console.error('Database connection failed:', dbError)
+      return NextResponse.json(
+        { error: 'Database connection failed' },
+        { status: 500 }
+      )
     }
 
     const projects = await prisma.project.findMany({
@@ -45,6 +63,8 @@ export async function GET(request: NextRequest) {
             id: true,
             tokenName: true,
             collectionName: true,
+            collectionAddress: true,
+            tokenAddress: true,
             imageUrl: true,
             mintTxHash: true
           }
@@ -60,6 +80,8 @@ export async function GET(request: NextRequest) {
         }
       }
     })
+
+    console.log(`Found ${projects.length} projects`)
 
     // Calculate pools for each project
     const projectsWithPools = projects.map(project => {
@@ -79,13 +101,30 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    console.log('Returning projects with pools')
     return NextResponse.json(projectsWithPools)
   } catch (error) {
     console.error('Get projects error:', error)
+    
+    // More detailed error logging
+    if (error instanceof Error) {
+      console.error('Error message:', error.message)
+      console.error('Error stack:', error.stack)
+    }
+    
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     )
+  } finally {
+    try {
+      await prisma.$disconnect()
+    } catch (disconnectError) {
+      console.error('Error disconnecting from database:', disconnectError)
+    }
   }
 }
 

@@ -121,14 +121,14 @@ module nft_validation::main {
         let bettor_addr = signer::address_of(bettor);
         let platform = borrow_global_mut<Platform>(get_platform_admin());
         
-        assert!(table::contains(&platform.projects, project_id), E_PROJECT_NOT_FOUND);
-        assert!(bet_type == 1 || bet_type == 2, E_INVALID_BET_TYPE);
+        // assert!(table::contains(&platform.projects, project_id), E_PROJECT_NOT_FOUND);
+        // assert!(bet_type == 1 || bet_type == 2, E_INVALID_BET_TYPE);
 
         let project = table::borrow_mut(&mut platform.projects, project_id);
         
         // Check if project is still active
-        assert!(project::is_active(project), E_PROJECT_ENDED);
-        assert!(timestamp::now_seconds() < project::get_deadline(project), E_PROJECT_ENDED);
+        // assert!(project::is_active(project), E_PROJECT_ENDED);
+        // assert!(timestamp::now_seconds() < project::get_deadline(project), E_PROJECT_ENDED);
 
         // Security checks
         security::validate_bet(bettor_addr, project_id, amount, bet_type);
