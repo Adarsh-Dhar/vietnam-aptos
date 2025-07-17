@@ -4,13 +4,13 @@
 import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
 
 const MODULES = {
-  bet_types: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::bet_types",
-  project: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::project",
-  betting: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::betting",
-  security: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::security",
-  main: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::main",
-  nft_validator: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::nft_validator",
-  oracle: "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b::oracle",
+  bet_types: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::bet_types",
+  project: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::project",
+  betting: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::betting",
+  security: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::security",
+  main: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::main",
+  nft_validator: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::nft_validator",
+  oracle: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::oracle",
 };
 
 const MODULE = MODULES.main;
@@ -31,7 +31,7 @@ const NEW_ORACLE = "0x7";
 const LISTING_FEE = 1000000;
 const PLATFORM_FEE_BPS = 100;
 const WITHDRAW_AMOUNT = 500000;
-const ORACLE_ADDRESS = "0x3badada8a3331daea64d8b3b108dd609bda222f6cf4bb77463a31eed7cff517b";
+const ORACLE_ADDRESS = "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6";
 
 // Helper to get the connected wallet
 function getAptosWallet() {
@@ -502,6 +502,123 @@ async function runAllTransactions(aptos: any) {
   const committedTxn8 = await aptos.signAndSubmitTransaction({ signer: ADMIN, transaction: txn8 });
   await aptos.waitForTransaction({ transactionHash: committedTxn8.hash });
   console.log(`Committed transaction: ${committedTxn8.hash}`);
+}
+
+// --- Memecoin Factory Functions ---
+
+const MEMECOIN_FACTORY = "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::memecoin_factory";
+
+// 1. Initialize the memecoin registry (admin only, call once)
+export async function initMemecoinModule() {
+  const wallet = getAptosWallet();
+  const payload = {
+    type: "entry_function_payload",
+    function: `${MEMECOIN_FACTORY}::init_module`,
+    type_arguments: [],
+    arguments: [],
+  };
+  const response = await wallet.signAndSubmitTransaction({ payload });
+  await aptos.waitForTransaction({ transactionHash: response.hash });
+  return response.hash;
+}
+
+// 2. Create a new memecoin
+export async function createMemecoin({
+  name,
+  symbol,
+  decimals,
+  iconUri,
+  projectUri,
+  maxSupply, // string | null
+  pricePerToken, // in Octas
+  onResult,
+}: {
+  name: string;
+  symbol: string;
+  decimals: number;
+  iconUri: string;
+  projectUri: string;
+  maxSupply: string | null; // string for u128, null for None
+  pricePerToken: number;
+  onResult?: (hash: string) => void;
+}) {
+  const wallet = getAptosWallet();
+  // Move expects Option<u128> for max_supply
+  const payload = {
+    type: "entry_function_payload",
+    function: `${MEMECOIN_FACTORY}::create_memecoin`,
+    type_arguments: [],
+    arguments: [
+      name.split("").map((c) => c.charCodeAt(0)),
+      symbol.split("").map((c) => c.charCodeAt(0)),
+      decimals,
+      iconUri.split("").map((c) => c.charCodeAt(0)),
+      projectUri.split("").map((c) => c.charCodeAt(0)),
+      maxSupply ? maxSupply : null,
+      pricePerToken,
+    ],
+  };
+  const response = await wallet.signAndSubmitTransaction({ payload });
+  await aptos.waitForTransaction({ transactionHash: response.hash });
+  if (onResult) onResult(response.hash);
+  return response.hash;
+}
+
+// 3. Buy memecoins
+export async function buyMemecoin({
+  memecoinAddress,
+  amount,
+  onResult,
+}: {
+  memecoinAddress: string;
+  amount: number;
+  onResult?: (hash: string) => void;
+}) {
+  const wallet = getAptosWallet();
+  const payload = {
+    type: "entry_function_payload",
+    function: `${MEMECOIN_FACTORY}::buy_memecoin`,
+    type_arguments: [],
+    arguments: [memecoinAddress, amount],
+  };
+  const response = await wallet.signAndSubmitTransaction({ payload });
+  await aptos.waitForTransaction({ transactionHash: response.hash });
+  if (onResult) onResult(response.hash);
+  return response.hash;
+}
+
+// 4. Get all memecoins by creator (view)
+export async function getMemecoinsByCreator(creator: string) {
+  try {
+    const [addresses] = await aptos.view<string[]>({
+      payload: {
+        function: `${MEMECOIN_FACTORY}::get_memecoins_by_creator`,
+        typeArguments: [],
+        functionArguments: [creator],
+      },
+    });
+    return addresses;
+  } catch (error) {
+    console.error("Error getting memecoins by creator:", error);
+    throw error;
+  }
+}
+
+// 5. Get all memecoins (view)
+export async function getAllMemecoins() {
+  try {
+    const [memecoins] = await aptos.view<any[]>({
+      payload: {
+        function: `${MEMECOIN_FACTORY}::get_all_memecoins`,
+        typeArguments: [],
+        functionArguments: [],
+      },
+    });
+    return memecoins;
+  } catch (error) {
+    console.error("Error getting all memecoins:", error);
+    throw error;
+  }
 }
 
 // Export the function for use elsewhere

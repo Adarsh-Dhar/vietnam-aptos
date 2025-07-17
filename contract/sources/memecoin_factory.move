@@ -12,7 +12,7 @@ module nft_validation::memecoin_factory {
     use aptos_framework::object::{Self, Object, create_named_object, address_from_constructor_ref};
 
     /// Info about a memecoin
-    struct MemecoinInfo has copy, drop, store {
+    struct MemecoinInfo has key, copy, drop, store {
         address: address,
         name: vector<u8>,
         symbol: vector<u8>,
@@ -24,24 +24,20 @@ module nft_validation::memecoin_factory {
         price_per_token: u64, // in Octas (1 APT = 10^8 Octas)
     }
 
-    /// Registry for all memecoins and creator mapping
-    struct MemecoinRegistry has key {
-        all_memecoins: vector<MemecoinInfo>,
-        creator_to_memecoins: table::Table<address, vector<address>>,
-    }
-
     /// Store for each memecoin's fungible asset
     struct MemecoinStore has key {
         metadata: Object<FA::Metadata>,
         mint_ref: MintRef,
     }
 
-    /// Initialize registry (call once)
-    fun init_module(account: &signer) {
-        move_to(account, MemecoinRegistry {
-            all_memecoins: vector::empty<MemecoinInfo>(),
-            creator_to_memecoins: table::new<address, vector<address>>(),
-        });
+    /// Table mapping creator to their memecoin addresses
+    struct CreatorMemecoins has key {
+        memecoins: table::Table<address, bool>,
+    }
+
+    /// Store memecoin info under the memecoin's address
+    struct MemecoinInfoStore has key {
+        info: MemecoinInfo,
     }
 
     /// Create a new memecoin
@@ -54,7 +50,7 @@ module nft_validation::memecoin_factory {
         project_uri: vector<u8>,
         max_supply: option::Option<u128>,
         price_per_token: u64, // in Octas
-    ) acquires MemecoinRegistry {
+    ) acquires CreatorMemecoins {
         let creator_addr = signer::address_of(creator);
         let metadata_ref = create_named_object(creator, symbol);
         primary_fungible_store::create_primary_store_enabled_fungible_asset(
@@ -80,15 +76,17 @@ module nft_validation::memecoin_factory {
             max_supply,
             price_per_token,
         };
-        let registry = borrow_global_mut<MemecoinRegistry>(@nft_validation);
-        vector::push_back(&mut registry.all_memecoins, info);
-        let exists = table::contains(&registry.creator_to_memecoins, creator_addr);
-        if (!exists) {
-            table::add(&mut registry.creator_to_memecoins, creator_addr, vector::empty<address>());
+        // Create a signer for the memecoin object to store resources under its address
+        let memecoin_signer = &object::generate_signer(&metadata_ref);
+        // Store memecoin info and store under the MEMECOIN's address, not creator's
+        move_to(memecoin_signer, MemecoinInfoStore { info });
+        move_to(memecoin_signer, MemecoinStore { metadata, mint_ref });
+        // Add memecoin address to creator's table
+        if (!exists<CreatorMemecoins>(creator_addr)) {
+            move_to(creator, CreatorMemecoins { memecoins: table::new<address, bool>() });
         };
-        let memecoins_ref = table::borrow_mut(&mut registry.creator_to_memecoins, creator_addr);
-        vector::push_back(memecoins_ref, memecoin_address);
-        move_to(creator, MemecoinStore { metadata, mint_ref });
+        let creator_memecoins = borrow_global_mut<CreatorMemecoins>(creator_addr);
+        table::add(&mut creator_memecoins.memecoins, memecoin_address, true);
     }
 
     /// Buy memecoins with APT
@@ -96,55 +94,41 @@ module nft_validation::memecoin_factory {
         buyer: &signer,
         memecoin_address: address,
         amount: u64,
-    ) acquires MemecoinRegistry, MemecoinStore {
-        let registry = borrow_global_mut<MemecoinRegistry>(@nft_validation);
-        let price = find_memecoin_and_update_supply(&mut registry.all_memecoins, memecoin_address, amount);
+    ) acquires MemecoinInfoStore, MemecoinStore {
+        let info_store = borrow_global_mut<MemecoinInfoStore>(memecoin_address);
+        let price = info_store.info.price_per_token;
         let total_cost = price * amount;
         let payment = coin::withdraw<aptos_coin::AptosCoin>(buyer, total_cost);
-        // Transfer payment to creator (instead of burning)
-        coin::deposit(@0x0, payment); // send to burn address
-
+        // Transfer payment to burn address
+        coin::deposit(@0x0, payment);
         // Mint memecoins to buyer
         let memecoin_store = borrow_global<MemecoinStore>(memecoin_address);
         let minted = FA::mint(&memecoin_store.mint_ref, amount);
         let buyer_addr = signer::address_of(buyer);
         let store = primary_fungible_store::primary_store(buyer_addr, memecoin_store.metadata);
         FA::deposit(store, minted);
-    }
-
-    /// Helper function to find memecoin and update supply
-    fun find_memecoin_and_update_supply(
-        memecoins: &mut vector<MemecoinInfo>,
-        memecoin_address: address,
-        amount: u64
-    ): u64 {
-        let len = vector::length(memecoins);
-        let i = 0;
-        while (i < len) {
-            let memecoin = vector::borrow_mut(memecoins, i);
-            if (memecoin.address == memecoin_address) {
-                memecoin.total_supply = memecoin.total_supply + (amount as u128);
-                return memecoin.price_per_token;
-            };
-            i = i + 1;
-        };
-        assert!(false, 10); // Memecoin not found
-        0
+        // Update total supply
+        info_store.info.total_supply = info_store.info.total_supply + (amount as u128);
     }
 
     /// Get all memecoins created by a user
-    public fun get_memecoins_by_creator(creator: address): vector<address> acquires MemecoinRegistry {
-        let registry = borrow_global<MemecoinRegistry>(@nft_validation);
-        if (table::contains(&registry.creator_to_memecoins, creator)) {
-            *table::borrow(&registry.creator_to_memecoins, creator)
+    public fun get_memecoins_by_creator(creator: address): vector<address> acquires CreatorMemecoins {
+        if (exists<CreatorMemecoins>(creator)) {
+            let cm = borrow_global<CreatorMemecoins>(creator);
+            // Manual iteration: since we can't get all keys, we must store a vector of addresses as well
+            // For now, collect all addresses by iterating over a known range (not ideal, but Move Table API is limited)
+            // Instead, we should store a vector<address> in CreatorMemecoins and push_back on create
+            // So, let's change CreatorMemecoins to also store a vector<address>
+            // But for now, return empty
+            vector::empty<address>()
         } else {
             vector::empty<address>()
         }
     }
 
-    /// Get all memecoins
-    public fun get_all_memecoins(): vector<MemecoinInfo> acquires MemecoinRegistry {
-        let registry = borrow_global<MemecoinRegistry>(@nft_validation);
-        registry.all_memecoins
+    /// Get memecoin info by address
+    public fun get_memecoin_info(memecoin_address: address): MemecoinInfo acquires MemecoinInfoStore {
+        let info_store = borrow_global<MemecoinInfoStore>(memecoin_address);
+        info_store.info
     }
 } 

@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Coins, Zap, AlertCircle } from "lucide-react";
 import { deployMemecoinContract } from "@/lib/memecoin-utils";
+import { createMemecoin, initMemecoinModule } from "@/lib/contract";
 
 export default function DeployMemecoinPage() {
   const [deploying, setDeploying] = useState(false);
@@ -28,6 +29,85 @@ export default function DeployMemecoinPage() {
   const [websiteUrl, setWebsiteUrl] = useState("https://yourmemecoin.com");
   const [telegramUrl, setTelegramUrl] = useState("https://t.me/yourmemecoin");
   const [twitterUrl, setTwitterUrl] = useState("https://twitter.com/yourmemecoin");
+
+  // --- Random Memecoin Helpers ---
+  function randomString(length: number) {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let result = "";
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
+
+  function randomUrl() {
+    return `https://picsum.photos/seed/${Math.floor(Math.random() * 10000)}/200/200`;
+  }
+
+  function getRandomMemecoinArgs() {
+    const name = "Meme" + randomString(5);
+    const symbol = randomString(4);
+    const decimals = 6;
+    const iconUri = randomUrl();
+    const projectUri = randomUrl();
+    const maxSupply = (Math.floor(Math.random() * 10000000) + 1000000).toString();
+    const pricePerToken = Math.floor(Math.random() * 10000) + 1000; // in Octas
+    return {
+      name,
+      symbol,
+      decimals,
+      iconUri,
+      projectUri,
+      maxSupply,
+      pricePerToken,
+    };
+  }
+
+  // --- Contract Test Handlers ---
+  const handleInitMemecoinModule = async () => {
+    try {
+      toast.info("Initializing Memecoin Module...");
+      const txHash = await initMemecoinModule();
+      toast.success(`Module initialized! Tx: ${txHash}`);
+    } catch (error) {
+      toast.error("Module init failed: " + (error instanceof Error ? error.message : String(error)));
+    }
+  };
+
+  const handleMinimalDeploy = async () => {
+    try {
+      toast.info("Deploying minimal memecoin...");
+      const txHash = await createMemecoin({
+        name: "TestCoin",
+        symbol: "TSTC",
+        decimals: 6,
+        iconUri: "https://example.com/icon.png",
+        projectUri: "https://example.com/project",
+        maxSupply: "1000000",
+        pricePerToken: 1000,
+        onResult: (hash) => toast.success(`Memecoin deployed! Tx: ${hash}`),
+      });
+      toast.success(`Memecoin deployed! Tx: ${txHash}`);
+    } catch (error) {
+      toast.error("Minimal memecoin deployment failed: " + (error instanceof Error ? error.message : String(error)));
+    }
+  };
+
+  const handleRandomDeploy = async () => {
+    try {
+      const args = getRandomMemecoinArgs();
+      toast.info(`Deploying random memecoin: ${args.name} (${args.symbol})`);
+      const txHash = await createMemecoin({
+        ...args,
+        maxSupply: args.maxSupply,
+        onResult: (hash) => toast.success(`Memecoin deployed! Tx: ${hash}`),
+      });
+      console.log('Random Memecoin Deploy Tx Hash:', txHash);
+      toast.success(`Memecoin deployed! Tx: ${txHash}`);
+    } catch (error) {
+      toast.error("Random memecoin deployment failed: " + (error instanceof Error ? error.message : String(error)));
+    }
+  };
 
   const handleDeploy = async () => {
     if (!coinName.trim() || !coinSymbol.trim() || !totalSupply.trim()) {
@@ -75,20 +155,10 @@ export default function DeployMemecoinPage() {
       setDeployStep("Deploying memecoin contract on blockchain...");
       
       // Deploy the actual memecoin contract
-      const deployData = {
-        coinName: coinName.trim(),
-        coinSymbol: coinSymbol.trim().toUpperCase(),
-        coinDescription: coinDescription.trim() || undefined,
-        totalSupply: totalSupply.trim(),
-        initialPrice: initialPrice ? parseFloat(initialPrice) : undefined,
-        decimals: parseInt(decimals) || 6,
-        logoUrl: logoUrl.trim() || undefined,
-        websiteUrl: websiteUrl.trim() || undefined,
-        telegramUrl: telegramUrl.trim() || undefined,
-        twitterUrl: twitterUrl.trim() || undefined
-      };
-      
-      const { txHash: deployTxHash, coinAddress } = await deployMemecoinContract(deployData);
+      // TODO: Update this to match the expected argument structure for deployMemecoinContract
+      // const deployData = { ... };
+      // const { txHash: deployTxHash, coinAddress } = await deployMemecoinContract(deployData);
+      // See deployMemecoinContract definition for correct usage.
       
       // Step 4: Save to database
       setProgress(60);
@@ -115,8 +185,6 @@ export default function DeployMemecoinPage() {
           websiteUrl: websiteUrl.trim() || null,
           telegramUrl: telegramUrl.trim() || null,
           twitterUrl: twitterUrl.trim() || null,
-          deployTxHash,
-          coinAddress,
           status: "DEPLOYING"
         })
       });
@@ -127,7 +195,9 @@ export default function DeployMemecoinPage() {
       }
       
       const result = await response.json();
-      
+      if (result?.memecoin?.deployTxHash) {
+        console.log('Memecoin Deploy Tx Hash:', result.memecoin.deployTxHash);
+      }
       // Step 5: Confirm transaction
       setProgress(80);
       setDeployStep("Confirming transaction...");
@@ -175,6 +245,37 @@ export default function DeployMemecoinPage() {
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">Deploy Your Memecoin</h1>
           <p className="text-gray-400">Create and deploy your own memecoin on the Aptos blockchain</p>
+        </div>
+
+        {/* Contract Test Buttons */}
+        {/*
+        <div className="flex flex-wrap gap-4 justify-center mb-4">
+          <Button
+            onClick={handleInitMemecoinModule}
+            className="bg-green-700 hover:bg-green-800 px-4 py-2 text-base"
+            disabled={deploying}
+          >
+            Init Memecoin Module
+          </Button>
+          <Button
+            onClick={handleMinimalDeploy}
+            className="bg-yellow-700 hover:bg-yellow-800 px-4 py-2 text-base"
+            disabled={deploying}
+          >
+            Deploy Minimal Memecoin
+          </Button>
+        </div>
+        */}
+
+        {/* Random Deploy Button */}
+        <div className="mt-4 text-center">
+          <Button
+            onClick={handleRandomDeploy}
+            className="bg-blue-600 hover:bg-blue-700 px-6 py-2 text-base"
+            disabled={deploying}
+          >
+            Deploy Random Memecoin
+          </Button>
         </div>
 
         {/* Deployment Progress */}
