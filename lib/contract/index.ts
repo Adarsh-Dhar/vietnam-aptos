@@ -4,13 +4,13 @@
 import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
 
 const MODULES = {
-  bet_types: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::bet_types",
-  project: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::project",
-  betting: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::betting",
-  security: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::security",
-  main: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::main",
-  nft_validator: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::nft_validator",
-  oracle: "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::oracle",
+  bet_types: "0x4f96895cd9ba6d7c60554ff1d395940d771806d61ad1096972cccbe2efc1cf06::bet_types",
+  project: "0x4f96895cd9ba6d7c60554ff1d395940d771806d61ad1096972cccbe2efc1cf06::project",
+  betting: "0x4f96895cd9ba6d7c60554ff1d395940d771806d61ad1096972cccbe2efc1cf06::betting",
+  security: "0x4f96895cd9ba6d7c60554ff1d395940d771806d61ad1096972cccbe2efc1cf06::security",
+  main: "0x4f96895cd9ba6d7c60554ff1d395940d771806d61ad1096972cccbe2efc1cf06::main",
+  nft_validator: "0x4f96895cd9ba6d7c60554ff1d395940d771806d61ad1096972cccbe2efc1cf06::nft_validator",
+  oracle: "0x4f96895cd9ba6d7c60554ff1d395940d771806d61ad1096972cccbe2efc1cf06::oracle",
 };
 
 const MODULE = MODULES.main;
@@ -31,7 +31,7 @@ const NEW_ORACLE = "0x7";
 const LISTING_FEE = 1000000;
 const PLATFORM_FEE_BPS = 100;
 const WITHDRAW_AMOUNT = 500000;
-const ORACLE_ADDRESS = "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6";
+const ORACLE_ADDRESS = "0x4f96895cd9ba6d7c60554ff1d395940d771806d61ad1096972cccbe2efc1cf06";
 
 // Helper to get the connected wallet
 function getAptosWallet() {
@@ -506,7 +506,7 @@ async function runAllTransactions(aptos: any) {
 
 // --- Memecoin Factory Functions ---
 
-const MEMECOIN_FACTORY = "0xa8e5ecb5bcf723d43ae3e97fbcb53254128082f5f5ce5695d5a46badde13dec6::memecoin_factory";
+const MEMECOIN_FACTORY = "0x4f96895cd9ba6d7c60554ff1d395940d771806d61ad1096972cccbe2efc1cf06::memecoin_factory";
 
 // 1. Initialize the memecoin registry (admin only, call once)
 export async function initMemecoinModule() {

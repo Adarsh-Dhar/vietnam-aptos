@@ -20,6 +20,8 @@ export async function POST(request: NextRequest) {
     });
 
     const body = await request.json();
+    console.log('📋 Request body:', JSON.stringify(body, null, 2));
+    
     const {
       coinName,
       coinSymbol,
@@ -40,7 +42,8 @@ export async function POST(request: NextRequest) {
       coinSymbol,
       status,
       deployTxHash: deployTxHash ? `${deployTxHash.slice(0, 8)}...` : null,
-      totalSupply
+      totalSupply,
+      coinAddress: coinAddress ? `${coinAddress.slice(0, 8)}...` : null
     });
 
     // Validate required fields
@@ -73,6 +76,26 @@ export async function POST(request: NextRequest) {
 
     // Create Memecoin record
     console.log('💾 Creating Memecoin record in database...');
+    console.log('📝 Memecoin data to save:', {
+      creatorId: user.id,
+      coinName,
+      coinSymbol,
+      coinDescription: coinDescription || null,
+      totalSupply,
+      initialPrice: initialPrice || null,
+      currentPrice: initialPrice || null,
+      marketCap: null,
+      volume24h: null,
+      holders: 0,
+      deployTxHash: deployTxHash || null,
+      coinAddress: coinAddress || null,
+      status: status as any,
+      logoUrl: logoUrl || null,
+      websiteUrl: websiteUrl || null,
+      telegramUrl: telegramUrl || null,
+      twitterUrl: twitterUrl || null
+    });
+    
     const memecoin = await prisma.memecoin.create({
       data: {
         creatorId: user.id,
@@ -113,6 +136,8 @@ export async function POST(request: NextRequest) {
       creatorAddress: memecoin.creator.aptosAddress
     });
 
+    console.log('📋 Complete Database Response:', JSON.stringify(memecoin, null, 2));
+
     console.log('=== Memecoin Deployment Complete ===');
     console.log('🎯 Final Memecoin Record:', {
       id: memecoin.id,
@@ -124,13 +149,17 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(memecoin.createdAt).toLocaleString()
     });
 
-    return NextResponse.json({
+    const responseData = {
       success: true,
       memecoin
-    });
+    };
+
+    console.log('📤 Sending response to client:', JSON.stringify(responseData, null, 2));
+
+    return NextResponse.json(responseData);
 
   } catch (error) {
-    console.error('Memecoin deployment error:', error);
+    console.error('❌ Memecoin deployment error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -140,53 +169,31 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('=== Testing Authentication ===');
     const user = await authenticateUser(request);
     
     if (!user) {
+      console.log('❌ No user found in request');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    const status = searchParams.get('status');
-
-    // Build where clause
-    const where: any = {};
-    
-    if (userId) {
-      where.creatorId = userId;
-    } else {
-      // If no specific userId, show user's own memecoins
-      where.creatorId = user.id;
-    }
-
-    if (status) {
-      where.status = status;
-    }
-
-    const memecoins = await prisma.memecoin.findMany({
-      where,
-      include: {
-        creator: {
-          select: {
-            id: true,
-            aptosAddress: true,
-            username: true
-          }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
+    console.log('✅ User authenticated:', {
+      id: user.id,
+      aptosAddress: user.aptosAddress,
+      roles: user.roles
     });
 
     return NextResponse.json({
       success: true,
-      memecoins
+      user: {
+        id: user.id,
+        aptosAddress: user.aptosAddress,
+        roles: user.roles
+      }
     });
 
   } catch (error) {
-    console.error('Error fetching memecoins:', error);
+    console.error('❌ Authentication test error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

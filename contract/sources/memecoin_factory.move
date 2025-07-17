@@ -33,6 +33,7 @@ module nft_validation::memecoin_factory {
     /// Table mapping creator to their memecoin addresses
     struct CreatorMemecoins has key {
         memecoins: table::Table<address, bool>,
+        memecoin_addresses: vector<address>, // Add this vector to store addresses
     }
 
     /// Store memecoin info under the memecoin's address
@@ -81,12 +82,16 @@ module nft_validation::memecoin_factory {
         // Store memecoin info and store under the MEMECOIN's address, not creator's
         move_to(memecoin_signer, MemecoinInfoStore { info });
         move_to(memecoin_signer, MemecoinStore { metadata, mint_ref });
-        // Add memecoin address to creator's table
+        // Add memecoin address to creator's table and vector
         if (!exists<CreatorMemecoins>(creator_addr)) {
-            move_to(creator, CreatorMemecoins { memecoins: table::new<address, bool>() });
+            move_to(creator, CreatorMemecoins { 
+                memecoins: table::new<address, bool>(),
+                memecoin_addresses: vector::empty<address>(), // Initialize empty vector
+            });
         };
         let creator_memecoins = borrow_global_mut<CreatorMemecoins>(creator_addr);
         table::add(&mut creator_memecoins.memecoins, memecoin_address, true);
+        vector::push_back(&mut creator_memecoins.memecoin_addresses, memecoin_address); // Add address to vector
     }
 
     /// Buy memecoins with APT
@@ -115,12 +120,8 @@ module nft_validation::memecoin_factory {
     public fun get_memecoins_by_creator(creator: address): vector<address> acquires CreatorMemecoins {
         if (exists<CreatorMemecoins>(creator)) {
             let cm = borrow_global<CreatorMemecoins>(creator);
-            // Manual iteration: since we can't get all keys, we must store a vector of addresses as well
-            // For now, collect all addresses by iterating over a known range (not ideal, but Move Table API is limited)
-            // Instead, we should store a vector<address> in CreatorMemecoins and push_back on create
-            // So, let's change CreatorMemecoins to also store a vector<address>
-            // But for now, return empty
-            vector::empty<address>()
+            // Now we can return the actual vector of addresses
+            *&cm.memecoin_addresses
         } else {
             vector::empty<address>()
         }

@@ -11,6 +11,59 @@ import { toast } from "sonner";
 import { Coins, Zap, AlertCircle } from "lucide-react";
 import { deployMemecoinContract } from "@/lib/memecoin-utils";
 import { createMemecoin, initMemecoinModule } from "@/lib/contract";
+import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
+
+const aptos = new Aptos(new AptosConfig({ network: Network.DEVNET }));
+
+// Utility to extract memecoin address from events
+async function extractMemecoinAddressFromTx(txHash: string): Promise<string | null> {
+  try {
+    console.log('🔍 Extracting memecoin address from tx:', txHash);
+    
+    // Use getTransactionByHash for compatibility
+    const tx = await aptos.getTransactionByHash({ transactionHash: txHash });
+    console.log('📋 Transaction data received:', tx);
+    
+    // Defensive: check if events property exists
+    const events = (tx as any).events || [];
+    console.log('📊 Number of events found:', events.length);
+    console.log('📋 Events:', events);
+    
+    // Look for an event with the memecoin address (adjust type as needed)
+    const memecoinEvent = events.find(
+      (e: any) => e.type?.includes("MemecoinInfoStore") || e.type?.includes("MemecoinCreated")
+    );
+    console.log('🎯 Memecoin event found:', memecoinEvent);
+    
+    // Try to extract address from event data
+    if (memecoinEvent && memecoinEvent.data && memecoinEvent.data.address) {
+      console.log('✅ Found address in memecoin event:', memecoinEvent.data.address);
+      return memecoinEvent.data.address;
+    }
+    
+    // Fallback: try to find any address in event data
+    console.log('🔍 Searching for address in all events...');
+    for (const e of events) {
+      console.log('📋 Checking event:', e);
+      if (e.data && typeof e.data === 'object') {
+        console.log('📊 Event data:', e.data);
+        for (const [key, v] of Object.entries(e.data)) {
+          console.log(`🔍 Checking ${key}:`, v);
+          if (typeof v === 'string' && v.startsWith('0x') && v.length === 66) {
+            console.log('✅ Found potential address:', v);
+            return v;
+          }
+        }
+      }
+    }
+    
+    console.log('❌ No memecoin address found in transaction events');
+    return null;
+  } catch (err) {
+    console.error('❌ Failed to extract memecoin address:', err);
+    return null;
+  }
+}
 
 export default function DeployMemecoinPage() {
   const [deploying, setDeploying] = useState(false);
@@ -45,8 +98,9 @@ export default function DeployMemecoinPage() {
   }
 
   function getRandomMemecoinArgs() {
-    const name = "Meme" + randomString(5);
-    const symbol = randomString(4);
+    const timestamp = Date.now();
+    const name = "Meme" + randomString(5) + timestamp;
+    const symbol = randomString(4) + timestamp.toString().slice(-2);
     const decimals = 6;
     const iconUri = randomUrl();
     const projectUri = randomUrl();
@@ -104,7 +158,128 @@ export default function DeployMemecoinPage() {
       });
       console.log('Random Memecoin Deploy Tx Hash:', txHash);
       toast.success(`Memecoin deployed! Tx: ${txHash}`);
+
+      // Extract memecoin address from transaction
+      console.log('🔍 Attempting to extract memecoin address from transaction...');
+      const coinAddress = await extractMemecoinAddressFromTx(txHash);
+      console.log('📋 Extracted coin address:', coinAddress);
+      
+      if (!coinAddress) {
+        console.error('❌ Failed to extract memecoin address from transaction');
+        console.log('🔄 Using transaction hash as fallback coin address');
+        // Use transaction hash as fallback coin address
+        const fallbackAddress = txHash;
+        console.log('📋 Using fallback address:', fallbackAddress);
+        
+        // Continue with the fallback address
+        const jwt = localStorage.getItem("jwt");
+        if (!jwt) {
+          console.error('❌ No JWT token found');
+          toast.error("Please login first to save memecoin to database.");
+          return;
+        }
+        
+        console.log('Saving memecoin to database with fallback address:', {
+          coinName: args.name,
+          coinSymbol: args.symbol,
+          totalSupply: args.maxSupply,
+          deployTxHash: txHash,
+          coinAddress: fallbackAddress,
+          status: "DEPLOYED"
+        });
+        
+        const response = await fetch("/api/memecoin/deploy", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${jwt}`
+          },
+          body: JSON.stringify({
+            coinName: args.name,
+            coinSymbol: args.symbol,
+            coinDescription: null,
+            totalSupply: args.maxSupply,
+            initialPrice: args.pricePerToken,
+            logoUrl: args.iconUri,
+            websiteUrl: args.projectUri,
+            telegramUrl: null,
+            twitterUrl: null,
+            status: "DEPLOYED",
+            deployTxHash: txHash,
+            coinAddress: fallbackAddress
+          })
+        });
+        
+        console.log('Database save response status:', response.status);
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Database save error:', errorData);
+          toast.error(errorData.error || "Failed to save memecoin to database");
+        } else {
+          const result = await response.json();
+          console.log('Database save success:', result);
+          console.log('📥 Complete server response:', JSON.stringify(result, null, 2));
+          toast.success("Random memecoin saved to database!");
+        }
+        return;
+      }
+      
+      console.log('✅ Successfully extracted memecoin address:', coinAddress);
+      
+      // Store in DB after deploy
+      const jwt = localStorage.getItem("jwt");
+      if (!jwt) {
+        console.error('❌ No JWT token found');
+        toast.error("Please login first to save memecoin to database.");
+        return;
+      }
+      
+      console.log('Saving memecoin to database with data:', {
+        coinName: args.name,
+        coinSymbol: args.symbol,
+        totalSupply: args.maxSupply,
+        deployTxHash: txHash,
+        coinAddress,
+        status: "DEPLOYED"
+      });
+      
+      const response = await fetch("/api/memecoin/deploy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwt}`
+        },
+        body: JSON.stringify({
+          coinName: args.name,
+          coinSymbol: args.symbol,
+          coinDescription: null,
+          totalSupply: args.maxSupply,
+          initialPrice: args.pricePerToken,
+          logoUrl: args.iconUri,
+          websiteUrl: args.projectUri,
+          telegramUrl: null,
+          twitterUrl: null,
+          status: "DEPLOYED",
+          deployTxHash: txHash,
+          coinAddress
+        })
+      });
+      
+      console.log('Database save response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Database save error:', errorData);
+        toast.error(errorData.error || "Failed to save memecoin to database");
+      } else {
+        const result = await response.json();
+        console.log('Database save success:', result);
+        console.log('📥 Complete server response:', JSON.stringify(result, null, 2));
+        toast.success("Random memecoin saved to database!");
+      }
     } catch (error) {
+      console.error('Random memecoin deployment error:', error);
       toast.error("Random memecoin deployment failed: " + (error instanceof Error ? error.message : String(error)));
     }
   };
@@ -155,11 +330,20 @@ export default function DeployMemecoinPage() {
       setDeployStep("Deploying memecoin contract on blockchain...");
       
       // Deploy the actual memecoin contract
-      // TODO: Update this to match the expected argument structure for deployMemecoinContract
-      // const deployData = { ... };
-      // const { txHash: deployTxHash, coinAddress } = await deployMemecoinContract(deployData);
-      // See deployMemecoinContract definition for correct usage.
-      
+      const txHash = await createMemecoin({
+        name: coinName.trim(),
+        symbol: coinSymbol.trim().toUpperCase(),
+        decimals: parseInt(decimals) || 6,
+        iconUri: logoUrl.trim() || "",
+        projectUri: websiteUrl.trim() || "",
+        maxSupply: totalSupply.trim(),
+        pricePerToken: initialPrice ? parseFloat(initialPrice) : 0,
+      });
+      // Extract memecoin address from transaction
+      const coinAddress = await extractMemecoinAddressFromTx(txHash);
+      if (!coinAddress) {
+        throw new Error("Failed to extract memecoin address from transaction");
+      }
       // Step 4: Save to database
       setProgress(60);
       setDeployStep("Saving to database...");
@@ -185,7 +369,9 @@ export default function DeployMemecoinPage() {
           websiteUrl: websiteUrl.trim() || null,
           telegramUrl: telegramUrl.trim() || null,
           twitterUrl: twitterUrl.trim() || null,
-          status: "DEPLOYING"
+          status: "DEPLOYING",
+          deployTxHash: txHash,
+          coinAddress
         })
       });
       
@@ -275,6 +461,68 @@ export default function DeployMemecoinPage() {
             disabled={deploying}
           >
             Deploy Random Memecoin
+          </Button>
+        </div>
+
+        {/* Test Authentication Button */}
+        <div className="mt-4 text-center">
+          <Button
+            onClick={async () => {
+              try {
+                const jwt = localStorage.getItem("jwt");
+                if (!jwt) {
+                  toast.error("No JWT token found. Please login first.");
+                  return;
+                }
+                
+                console.log('Testing authentication with JWT:', jwt.slice(0, 20) + '...');
+                
+                const response = await fetch("/api/memecoin/deploy", {
+                  method: "GET",
+                  headers: {
+                    Authorization: `Bearer ${jwt}`
+                  }
+                });
+                
+                if (!response.ok) {
+                  const errorData = await response.json();
+                  toast.error("Authentication failed: " + errorData.error);
+                } else {
+                  const data = await response.json();
+                  console.log('Authentication test result:', data);
+                  toast.success("Authentication successful! User: " + data.user.aptosAddress);
+                }
+              } catch (error) {
+                console.error('Authentication test error:', error);
+                toast.error("Authentication test failed: " + (error instanceof Error ? error.message : String(error)));
+              }
+            }}
+            className="bg-green-600 hover:bg-green-700 px-6 py-2 text-base"
+            disabled={deploying}
+          >
+            Test Authentication
+          </Button>
+        </div>
+
+        {/* Test Database Connection Button */}
+        <div className="mt-4 text-center">
+          <Button
+            onClick={async () => {
+              try {
+                console.log('Testing database connection...');
+                const response = await fetch("/api/memecoin/all");
+                const data = await response.json();
+                console.log('Database test result:', data);
+                toast.success(`Database connection successful! Found ${data.memecoins?.length || 0} memecoins`);
+              } catch (error) {
+                console.error('Database test error:', error);
+                toast.error("Database test failed: " + (error instanceof Error ? error.message : String(error)));
+              }
+            }}
+            className="bg-yellow-600 hover:bg-yellow-700 px-6 py-2 text-base"
+            disabled={deploying}
+          >
+            Test Database Connection
           </Button>
         </div>
 
