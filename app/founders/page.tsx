@@ -19,6 +19,7 @@ import {
   Trash2,
   Image as ImageIcon,
   Check,
+  Coins,
 } from "lucide-react"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Form, FormItem, FormLabel, FormControl, FormMessage, FormField } from "@/components/ui/form"
@@ -36,15 +37,17 @@ function generateRandomHex64() {
   return "0x" + hex;
 }
 
-interface NFT {
+interface Memecoin {
   id: string;
-  collectionName: string;
-  collectionDescription: string;
-  tokenName: string;
-  tokenDescription: string | null;
-  imageUrl: string | null;
-  collectionTxHash: string | null;
-  mintTxHash: string | null;
+  coinName: string;
+  coinSymbol: string;
+  coinDescription: string | null;
+  totalSupply: string;
+  currentPrice?: number;
+  marketCap?: number;
+  holders: number;
+  logoUrl: string | null;
+  deployTxHash: string | null;
   status: string;
   createdAt: string;
   creator: {
@@ -57,10 +60,10 @@ interface NFT {
 export default function FoundersPage() {
   const [open, setOpen] = useState(false)
   const [projects, setProjects] = useState<any[]>([])
-  const [nfts, setNfts] = useState<NFT[]>([])
-  const [nftsLoading, setNftsLoading] = useState(false)
-  const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null)
-  const [nftSelectionOpen, setNftSelectionOpen] = useState(false)
+  const [memecoins, setMemecoins] = useState<Memecoin[]>([])
+  const [memecoinsLoading, setMemecoinsLoading] = useState(false)
+  const [selectedMemecoin, setSelectedMemecoin] = useState<Memecoin | null>(null)
+  const [memecoinSelectionOpen, setMemecoinSelectionOpen] = useState(false)
   const form = useForm({
     defaultValues: {
       name: "",
@@ -71,7 +74,7 @@ export default function FoundersPage() {
       targetHolders: "1000",
       deadline: new Date(Date.now() + 86400 * 10 * 1000), // 10 days from now
       categories: ["Health Tech"],
-      selectedNFTId: "",
+      selectedMemecoinId: "",
     },
   })
   const [loading, setLoading] = useState(false)
@@ -85,12 +88,12 @@ export default function FoundersPage() {
   const [stats, setStats] = useState<any[]>([])
   const [statsLoading, setStatsLoading] = useState(true)
 
-  // Fetch user's NFTs
-  const fetchNFTs = async () => {
+  // Fetch user's memecoins
+  const fetchMemecoins = async () => {
     try {
-      setNftsLoading(true);
+      setMemecoinsLoading(true);
       const jwt = typeof window !== "undefined" ? localStorage.getItem("jwt") : null;
-      const res = await fetch("/api/nft/save", {
+      const res = await fetch("/api/memecoin/save", {
         headers: {
           ...(jwt ? { Authorization: `Bearer ${jwt}` } : {})
         }
@@ -98,19 +101,19 @@ export default function FoundersPage() {
       
       if (res.ok) {
         const data = await res.json();
-        // Filter only MINTED NFTs
-        const mintedNFTs = data.nfts.filter((nft: NFT) => nft.status === "MINTED");
-        setNfts(mintedNFTs);
+        // Filter only DEPLOYED memecoins
+        const deployedMemecoins = data.memecoins.filter((memecoin: Memecoin) => memecoin.status === "DEPLOYED");
+        setMemecoins(deployedMemecoins);
       } else if (res.status === 401) {
         console.log("User not authenticated");
-        setNfts([]);
+        setMemecoins([]);
       } else {
-        console.error("Failed to fetch NFTs:", res.status);
+        console.error("Failed to fetch memecoins:", res.status);
       }
     } catch (error) {
-      console.error("Error fetching NFTs:", error);
+      console.error("Error fetching memecoins:", error);
     } finally {
-      setNftsLoading(false);
+      setMemecoinsLoading(false);
     }
   };
 
@@ -167,11 +170,11 @@ export default function FoundersPage() {
     }
   };
 
-  // Load projects, stats, and NFTs on component mount
+  // Load projects, stats, and memecoins on component mount
   useEffect(() => {
     fetchProjects();
     fetchStats();
-    fetchNFTs();
+    fetchMemecoins();
   }, []);
 
   const handleCreateProject = async (data: any) => {
@@ -188,182 +191,103 @@ export default function FoundersPage() {
         return;
       }
 
-      // Validate NFT selection
-      if (!selectedNFT) {
-        setError("Please select an NFT for your project.");
+      // Validate memecoin selection
+      if (!selectedMemecoin) {
+        setError("Please select a memecoin for your project.");
         setLoading(false);
         return;
       }
 
-      // Use selected NFT data
-      const nftContract = generateRandomHex64(); // Generate unique contract address for each project
-      const coverImage = selectedNFT.imageUrl && selectedNFT.imageUrl.startsWith("http") 
-        ? selectedNFT.imageUrl 
+      // Use selected memecoin data
+      const memecoinContract = generateRandomHex64(); // Generate unique contract address for each project
+      const coverImage = selectedMemecoin.logoUrl && selectedMemecoin.logoUrl.startsWith("http")
+        ? selectedMemecoin.logoUrl
         : "https://images.unsplash.com/photo-1506744038136-46273834b3fb";
-      
-      // Normalize categories to array of strings
-      const categories = Array.isArray(data.categories)
-        ? data.categories.map((cat: any) => typeof cat === "string" ? cat : cat?.name)
-        : [];
-      
-      // Encode metadataUri as Uint8Array for contract call
-      let metadataUri = typeof window !== "undefined" && window.TextEncoder
-        ? new window.TextEncoder().encode(coverImage)
-        : new TextEncoder().encode(coverImage);
-      console.log("metadataUri for contract:", metadataUri, Array.isArray(metadataUri), metadataUri instanceof Uint8Array);
-      
-      if (!targetHolders || !deadline || !nftContract || !metadataUri) {
-        setError("Missing required fields for contract call");
+      const metadataUri = `https://example.com/metadata/${Date.now()}.json`;
+
+      // Validate all required fields
+      if (!targetHolders || !deadline || !memecoinContract || !metadataUri) {
+        setError("Missing required project data.");
         setLoading(false);
         return;
       }
 
-      // Log deadline and current time for debugging
-      const currentTime = Math.floor(Date.now() / 1000);
-      console.log("deadline:", deadline, "current_time:", currentTime, "min:", currentTime + 86400, "max:", currentTime + 2592000);
+      setLoadingStep("Creating project on blockchain...")
+      console.log('Selected memecoin:', selectedMemecoin);
+      console.log('Collection address from API:', selectedMemecoin.deployTxHash);
+      
+      // Use memecoin contract address or generate one
+      const collectionAddress = selectedMemecoin.deployTxHash ||
+        generateRandomHex64();
 
-      // Log initialization status of Platform resource
-      try {
-        const moduleAddress = "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7"; // Module address
-        const adminAddress = "0x0063243a137391971e67b67ea8e2de564145781363a24071a57f74e755b750b7"; // Admin address (profile address)
-        const resourceType = `${moduleAddress}::main::Platform`;
-        const nodeUrl = "https://fullnode.devnet.aptoslabs.com/v1";
-        const res = await fetch(`${nodeUrl}/accounts/${adminAddress}/resource/${encodeURIComponent(resourceType)}`);
-        if (res.ok) {
-          const data = await res.json();
-          console.log("Platform resource exists:", true, data);
-        } else {
-          console.log("Platform resource exists:", false, await res.text());
-        }
-      } catch (e) {
-        console.log("Error checking Platform resource:", e);
-      }
-
-      // Step 1: Submit transaction to blockchain
-      setLoadingStep("Submitting transaction to blockchain...")
-      console.log("Submitting transaction to blockchain...");
-      const txHash = await createProjectOnChain({
+      // Create project on blockchain
+      const projectData = {
         targetHolders,
         deadline,
-        nftContract,
+        memecoinContract: collectionAddress,
+        metadataUri: new TextEncoder().encode(metadataUri),
+      };
+
+      console.log('Creating project with data:', projectData);
+      const projectId = await createProjectOnChain(projectData);
+      console.log('Project created on blockchain with ID:', projectId);
+
+      setLoadingStep("Saving project to database...")
+      
+      // Save project to database
+      const projectPayload = {
+        name: data.name,
+        description: data.description,
+        aptosContract: memecoinContract,
+        coverImage,
+        listingFee: data.listingFee,
+        targetHolders,
+        deadline: new Date(deadline * 1000),
+        categories: data.categories,
+        selectedMemecoinId: selectedMemecoin.id, // Store the selected memecoin ID
+        aptosContract: memecoinContract,
         metadataUri,
-      });
+      };
 
-      console.log("Transaction submitted successfully:", txHash);
-
-      // Step 2: Wait for transaction confirmation and then add to DB
-      setLoadingStep("Waiting for transaction confirmation...")
-      console.log("Waiting for transaction confirmation...");
-      
-      // Verify transaction was successful by checking if it exists on chain
-      try {
-        const nodeUrl = "https://fullnode.devnet.aptoslabs.com/v1";
-        const txResponse = await fetch(`${nodeUrl}/transactions/by_hash/${txHash}`);
-        
-        if (!txResponse.ok) {
-          throw new Error("Transaction not found on chain");
-        }
-        
-        const txData = await txResponse.json();
-        if (txData.vm_status !== "Executed successfully") {
-          throw new Error(`Transaction failed: ${txData.vm_status}`);
-        }
-        
-        console.log("Transaction confirmed successfully on chain");
-      } catch (verificationError) {
-        console.error("Transaction verification failed:", verificationError);
-        setError("Transaction was submitted but verification failed. Please check your wallet for transaction status.");
-        setLoading(false);
-        setLoadingStep("");
-        return;
-      }
-
-      // Step 3: Get the contract project ID from platform stats
-      setLoadingStep("Getting contract project ID...")
-      console.log("Getting contract project ID...");
-      
-      let contractProjectId: number
-      try {
-        const platformStats = await getPlatformStats()
-        if (platformStats && Array.isArray(platformStats) && platformStats[0]) {
-          contractProjectId = platformStats[0] as number // The first element is project_counter
-        } else {
-          throw new Error("Could not get platform stats")
-        }
-      } catch (error) {
-        console.error("Error getting contract project ID:", error)
-        setError("Failed to get contract project ID. Please try again.");
-        setLoading(false);
-        setLoadingStep("");
-        return;
-      }
-
-      // Step 4: Add to database only after transaction is confirmed
-      setLoadingStep("Adding project to database...")
-      console.log("Adding project to database...");
+      console.log('Saving project to database:', projectPayload);
       const jwt = typeof window !== "undefined" ? localStorage.getItem("jwt") : null;
       const res = await fetch("/api/projects", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           ...(jwt ? { Authorization: `Bearer ${jwt}` } : {})
         },
-        body: JSON.stringify({
-          ...data,
-          targetHolders,
-          deadline: data.deadline ? data.deadline.toISOString() : undefined,
-          categories,
-          contractTxHash: txHash, // Store the confirmed transaction hash
-          contractProjectId: Number(contractProjectId), // Ensure it's a number
-          selectedNFTId: selectedNFT.id, // Store the selected NFT ID
-          aptosContract: nftContract,
-          coverImage: coverImage,
-        }),
+        body: JSON.stringify(projectPayload),
       });
 
       if (!res.ok) {
-        let errMsg = `Database Error: ${res.status}`;
-        try {
-          const err = await res.json();
-          if (err.error && err.error.includes('Unique constraint failed') && err.error.includes('aptosContract')) {
-            errMsg = "A project with this Aptos contract address already exists. Please use a unique contract address.";
-          } else {
-            errMsg += err.error ? ` - ${err.error}` : "";
-          }
-        } catch (e) {}
-        setError(errMsg + " (Transaction was successful on blockchain but failed to save to database)");
-        setLoading(false);
-        setLoadingStep("");
-        return;
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to create project");
       }
+
+      const createdProject = await res.json();
+      console.log('Project created successfully:', createdProject);
+
+      setLoadingStep("Finalizing project...")
       
-      const newProject = await res.json();
-      setProjects([newProject, ...projects]);
+      // Update local state
+      setProjects(prev => [createdProject, ...prev]);
       setOpen(false);
       form.reset();
-      setSelectedNFT(null);
+      setSelectedMemecoin(null);
       
-      console.log("Project created successfully:", newProject);
-      
-      // Refresh projects list to get the latest data
-      await fetchProjects();
-      
-      // Refresh stats to get updated numbers
-      await fetchStats();
-    } catch (e) {
-      let errMsg = "Failed to create project";
-      if (typeof e === "object" && e && "message" in e) {
-        errMsg += ": " + (e as any).message;
-      } else if (typeof e === "string") {
-        errMsg += ": " + e;
-      }
-      setError(errMsg);
-      console.error("Project creation error:", e);
+      // Refresh data
+      fetchProjects();
+      fetchStats();
+
+    } catch (error) {
+      console.error("Error creating project:", error);
+      setError(error instanceof Error ? error.message : "Failed to create project");
     } finally {
       setLoading(false);
       setLoadingStep("");
     }
-  }
+  };
 
   const handleEditProject = async (data: any) => {
     setLoading(true)
@@ -558,7 +482,7 @@ export default function FoundersPage() {
                   categories: Array.isArray(current.categories)
                     ? current.categories.map((cat: any) => typeof cat === "string" ? cat : cat?.name)
                     : ["Health Tech"],
-                  selectedNFTId: "", // Clear selected NFT when opening dialog
+                  selectedMemecoinId: "", // Clear selected memecoin when opening dialog
                 });
               }
             }}>
@@ -596,34 +520,34 @@ export default function FoundersPage() {
                       </FormItem>
                     )} />
                     
-                    {/* NFT Selection */}
+                    {/* Memecoin Selection */}
                     <FormItem>
-                      <FormLabel>Select Your NFT</FormLabel>
+                      <FormLabel>Select Your Memecoin</FormLabel>
                       <div className="space-y-3">
-                        {selectedNFT ? (
+                        {selectedMemecoin ? (
                           <div className="border border-[#00F0FF]/30 rounded-lg p-4 bg-[#00F0FF]/5">
                             <div className="flex items-center gap-3">
-                              {selectedNFT.imageUrl ? (
+                              {selectedMemecoin.logoUrl ? (
                                 <img 
-                                  src={selectedNFT.imageUrl} 
-                                  alt={selectedNFT.tokenName}
+                                  src={selectedMemecoin.logoUrl} 
+                                  alt={selectedMemecoin.coinName}
                                   className="w-16 h-16 rounded-lg object-cover"
                                 />
                               ) : (
                                 <div className="w-16 h-16 rounded-lg bg-gray-600 flex items-center justify-center">
-                                  <ImageIcon className="h-8 w-8 text-gray-400" />
+                                  <Coins className="h-8 w-8 text-gray-400" />
                                 </div>
                               )}
                               <div className="flex-1">
-                                <h4 className="text-white font-medium">{selectedNFT.tokenName}</h4>
-                                <p className="text-gray-400 text-sm">{selectedNFT.collectionName}</p>
-                                <p className="text-gray-500 text-xs">Minted: {new Date(selectedNFT.createdAt).toLocaleDateString()}</p>
+                                <h4 className="text-white font-medium">{selectedMemecoin.coinName}</h4>
+                                <p className="text-gray-400 text-sm">{selectedMemecoin.coinSymbol}</p>
+                                <p className="text-gray-500 text-xs">Total Supply: {selectedMemecoin.totalSupply}</p>
                               </div>
                               <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setSelectedNFT(null)}
+                                onClick={() => setSelectedMemecoin(null)}
                                 className="text-red-400 hover:text-red-300"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -632,17 +556,17 @@ export default function FoundersPage() {
                           </div>
                         ) : (
                           <div className="border-2 border-dashed border-[#00F0FF]/30 rounded-lg p-6 text-center">
-                            <ImageIcon className="h-12 w-12 text-[#00F0FF] mx-auto mb-3" />
-                            <p className="text-white mb-2">Select an NFT for your project</p>
-                            <p className="text-gray-400 text-sm mb-4">Choose from your minted NFTs to represent this project</p>
+                            <Coins className="h-12 w-12 text-[#00F0FF] mx-auto mb-3" />
+                            <p className="text-white mb-2">Select a memecoin for your project</p>
+                            <p className="text-gray-400 text-sm mb-4">Choose from your deployed memecoins to represent this project</p>
                             <Button
                               type="button"
                               variant="outline"
-                              onClick={() => setNftSelectionOpen(true)}
+                              onClick={() => setMemecoinSelectionOpen(true)}
                               className="border-[#00F0FF]/50 text-[#00F0FF] hover:bg-[#00F0FF]/10"
                             >
-                              <ImageIcon className="mr-2 h-4 w-4" />
-                              Select NFT
+                              <Coins className="mr-2 h-4 w-4" />
+                              Select Memecoin
                             </Button>
                           </div>
                         )}
@@ -1059,67 +983,67 @@ export default function FoundersPage() {
           </DialogContent>
         </Dialog>
 
-        {/* NFT Selection Dialog */}
-        <Dialog open={nftSelectionOpen} onOpenChange={setNftSelectionOpen}>
+        {/* Memecoin Selection Dialog */}
+        <Dialog open={memecoinSelectionOpen} onOpenChange={setMemecoinSelectionOpen}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Select Your NFT</DialogTitle>
+              <DialogTitle>Select Your Memecoin</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              {nftsLoading ? (
+              {memecoinsLoading ? (
                 <div className="text-center py-10">
-                  <p className="text-gray-500">Loading your NFTs...</p>
+                  <p className="text-gray-500">Loading your memecoins...</p>
                 </div>
-              ) : nfts.length === 0 ? (
+              ) : memecoins.length === 0 ? (
                 <div className="text-center py-10">
-                  <ImageIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-white mb-2">No NFTs Found</h3>
-                  <p className="text-gray-400 mb-4">You don't have any minted NFTs yet.</p>
+                  <Coins className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-white mb-2">No Memecoins Found</h3>
+                  <p className="text-gray-400 mb-4">You don't have any deployed memecoins yet.</p>
                   <Button
                     onClick={() => {
-                      setNftSelectionOpen(false);
-                      window.open('/nft', '_blank');
+                      setMemecoinSelectionOpen(false);
+                      window.open('/memecoin', '_blank');
                     }}
                     className="bg-gradient-to-r from-[#00F0FF] to-[#8B5CF6]"
                   >
-                    Mint Your First NFT
+                    Deploy Your First Memecoin
                   </Button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {nfts.map((nft) => (
+                  {memecoins.map((memecoin) => (
                     <Card
-                      key={nft.id}
+                      key={memecoin.id}
                       className={`cursor-pointer transition-all duration-200 hover:scale-105 ${
-                        selectedNFT?.id === nft.id
+                        selectedMemecoin?.id === memecoin.id
                           ? 'ring-2 ring-[#00F0FF] bg-[#00F0FF]/10'
                           : 'hover:bg-white/5'
                       }`}
                       onClick={() => {
-                        setSelectedNFT(nft);
-                        setNftSelectionOpen(false);
+                        setSelectedMemecoin(memecoin);
+                        setMemecoinSelectionOpen(false);
                       }}
                     >
                       <div className="p-4">
                         <div className="aspect-square mb-3 rounded-lg overflow-hidden bg-gray-800">
-                          {nft.imageUrl ? (
+                          {memecoin.logoUrl ? (
                             <img
-                              src={nft.imageUrl}
-                              alt={nft.tokenName}
+                              src={memecoin.logoUrl}
+                              alt={memecoin.coinName}
                               className="w-full h-full object-cover"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <ImageIcon className="h-12 w-12 text-gray-400" />
+                              <Coins className="h-12 w-12 text-gray-400" />
                             </div>
                           )}
                         </div>
                         <div className="space-y-2">
-                          <h4 className="font-semibold text-white truncate">{nft.tokenName}</h4>
-                          <p className="text-sm text-gray-400 truncate">{nft.collectionName}</p>
+                          <h4 className="font-semibold text-white truncate">{memecoin.coinName}</h4>
+                          <p className="text-sm text-gray-400 truncate">{memecoin.coinSymbol}</p>
                           <div className="flex items-center justify-between text-xs text-gray-500">
-                            <span>{new Date(nft.createdAt).toLocaleDateString()}</span>
-                            {selectedNFT?.id === nft.id && (
+                            <span>{new Date(memecoin.createdAt).toLocaleDateString()}</span>
+                            {selectedMemecoin?.id === memecoin.id && (
                               <Check className="h-4 w-4 text-[#00F0FF]" />
                             )}
                           </div>
@@ -1133,7 +1057,7 @@ export default function FoundersPage() {
             <DialogFooter>
               <Button
                 variant="outline"
-                onClick={() => setNftSelectionOpen(false)}
+                onClick={() => setMemecoinSelectionOpen(false)}
               >
                 Cancel
               </Button>

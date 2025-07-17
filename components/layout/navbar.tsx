@@ -14,6 +14,8 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: TrendingUp },
   { name: "Founders", href: "/founders", icon: Building2 },
   { name: "Investors", href: "/investors", icon: User },
+  { name: "Memecoin", href: "/memecoin", icon: null },
+  { name: "My Memecoins", href: "/memecoin/my-memecoins", icon: null },
 ]
 
 export function Navbar() {
@@ -25,7 +27,7 @@ export function Navbar() {
       initial={{ y: -100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.6 }}
-      className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-white/10 backdrop-blur-xl"
+      style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50 }}
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
@@ -34,7 +36,6 @@ export function Navbar() {
             <motion.div
               whileHover={{ rotate: 360 }}
               transition={{ duration: 0.6 }}
-              className="w-8 h-8 bg-gradient-to-r from-[#00F0FF] to-[#8B5CF6] rounded-lg flex items-center justify-center"
             >
               <Zap className="h-5 w-5 text-white" />
             </motion.div>
@@ -52,12 +53,6 @@ export function Navbar() {
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className={cn(
-                      "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center space-x-2",
-                      isActive
-                        ? "bg-[#00F0FF]/20 text-[#00F0FF] border border-[#00F0FF]/30"
-                        : "text-gray-300 hover:text-white hover:bg-white/10",
-                    )}
                   >
                     {item.icon && <item.icon className="h-4 w-4" />}
                     <span>{item.name}</span>

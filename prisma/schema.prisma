@@ -17,38 +17,38 @@ model User {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
   bets            Bet[]
-  nfts            NFT[]
+  memecoins       Memecoin[]
   payouts         Payout[]
   createdProjects Project[]
 }
 
 model Project {
-  id                String        @id @default(uuid())
-  creatorId         String
-  aptosContract     String
-  name              String
-  description       String
-  coverImage        String?
-  listingFee        Float
-  targetHolders     Int
-  currentHolders    Int           @default(0)
-  deadline          DateTime
-  status            ProjectStatus @default(ACTIVE)
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  doubtPool         Float         @default(0)
-  platformFee       Float         @default(0.01)
-  supportPool       Float         @default(0)
-  totalPool         Float         @default(0)
-  selectedNFTId     String?
-  contractProjectId Int?
-  bets              Bet[]
-  metrics           Metric[]
-  Payout            Payout[]
-  creator           User          @relation(fields: [creatorId], references: [id])
-  selectedNFT       NFT?          @relation(fields: [selectedNFTId], references: [id])
-  validation        Validation?
-  categories        Category[]    @relation("CategoryToProject")
+  id                 String        @id @default(uuid())
+  creatorId          String
+  aptosContract      String
+  name               String
+  description        String
+  coverImage         String?
+  listingFee         Float
+  targetHolders      Int
+  currentHolders     Int           @default(0)
+  deadline           DateTime
+  status             ProjectStatus @default(ACTIVE)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  doubtPool          Float         @default(0)
+  platformFee        Float         @default(0.01)
+  supportPool        Float         @default(0)
+  totalPool          Float         @default(0)
+  contractProjectId  Int?
+  selectedMemecoinId String?
+  bets               Bet[]
+  metrics            Metric[]
+  Payout             Payout[]
+  creator            User          @relation(fields: [creatorId], references: [id])
+  selectedMemecoin   Memecoin?     @relation(fields: [selectedMemecoinId], references: [id])
+  validation         Validation?
+  categories         Category[]    @relation("CategoryToProject")
 }
 
 model Metric {
@@ -119,29 +119,32 @@ model PlatformStats {
   platformEarnings Float  @default(0)
 }
 
-model NFT {
-  id                    String    @id @default(uuid())
-  creatorId             String
-  collectionName        String
-  collectionDescription String
-  collectionUri         String
-  tokenName             String
-  tokenDescription      String?
-  tokenUri              String
-  imageUrl              String?
-  collectionTxHash      String?
-  mintTxHash            String?
-  aptosTokenId          String?
-  aptosCollectionId     String?
-  status                NFTStatus @default(MINTING)
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  collectionAddress     String?
-  tokenAddress          String?
-  creator               User      @relation(fields: [creatorId], references: [id])
-  projects              Project[]
+model Memecoin {
+  id              String         @id @default(uuid())
+  creatorId       String
+  coinName        String
+  coinSymbol      String
+  coinDescription String?
+  totalSupply     String
+  initialPrice    Float?
+  currentPrice    Float?
+  marketCap       Float?
+  volume24h       Float?
+  holders         Int            @default(0)
+  mintTxHash      String?
+  deployTxHash    String?
+  coinAddress     String?
+  status          MemecoinStatus @default(DEPLOYING)
+  logoUrl         String?
+  websiteUrl      String?
+  telegramUrl     String?
+  twitterUrl      String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  creator         User           @relation(fields: [creatorId], references: [id])
+  projects        Project[]
 
-  @@unique([collectionName, tokenName])
+  @@unique([coinName, coinSymbol])
 }
 
 enum ProjectStatus {
@@ -164,9 +167,10 @@ enum UserRole {
   ADMIN
 }
 
-enum NFTStatus {
-  MINTING
-  MINTED
+enum MemecoinStatus {
+  DEPLOYING
+  DEPLOYED
   FAILED
-  TRANSFERRED
+  TRADING
+  PAUSED
 }
